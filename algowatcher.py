@@ -16,8 +16,18 @@ algoClient = algod.AlgodClient(algoNodeToken, algoNodeAddress)
 monitor = False
 localContext = {}
 
+def getAssetBalance(algoAddress, assetId):
+   global algoClient
+   balance = 0
+   account_info = algoClient.account_info(algoAddress)
+   assets = account_info.get('assets')
+   for asset in assets:
+       if asset['asset-id'] == int(assetId):
+           balance = asset['amount']
+   return balance
+
 def start(update, context):
-    message = "Hello. You can type the following commands \n \t /start  - Display this menu \n \t /address <new address value> - Algorand Address for bot to monitor \n \t /getAlgoBalance - Get Current Balance (Note: Address must be set using /address first) \n \t /getPlanetBalance - Get Current  Planet Balance (Note: Address must be set using /address first) \n \t /startPlanetMonitor - Monitor Address to see if Planets have stopped being sent to the Account. This command will alert every 30 seconds if no new Planets are detected. \n \t /stopPlanetMonitor - Disable Planet Monitoring"
+    message = "Hello. You can type the following commands \n \t /start  - Display this menu \n \t /address <new address value> - Algorand Address for bot to monitor \n \t /getAlgoBalance - Get Current Balance (Note: Address must be set using /address first) \n \t /getPlanetBalance - Get Current  Planet Balance (Note: Address must be set using /address first) \n \t /getAssetBalance <AssetId> - Get Current Asset Balance \n \t /startPlanetMonitor - Monitor Address to see if Planets have stopped being sent to the Account. This command will alert every 30 seconds if no new Planets are detected. \n \t /stopPlanetMonitor - Disable Planet Monitoring"
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 def updateAddress(update, context):
@@ -32,7 +42,7 @@ def getAlgoBalance(update, context):
         algoAddress = context.user_data[update.effective_chat.id].get('address')
         account_info = algoClient.account_info(algoAddress)
         balance = account_info.get('amount')*1e-6
-        message = "Account Balance: {} Algos".format(balance)
+        message = "Account Balance: {} Algo".format(balance)
     except:
         message = "No valid address found. Please store address with /address first"
 
@@ -43,14 +53,7 @@ def getPlanetBalance(update, context):
     global planetAssetId
     try:
         algoAddress = context.user_data[update.effective_chat.id].get('address')
-        account_info = algoClient.account_info(algoAddress)
-        balance = account_info.get('amount')*1e-6
-        account_info = algoClient.account_info(algoAddress)
-        balance = 0
-        assets = account_info.get('assets')
-        for asset in assets:
-            if asset['asset-id'] == planetAssetId:
-                balance = asset['amount']*1e-6
+        balance = getAssetBalance(algoAddress, planetAssetId)*1e-6
         message = "Account Balance: {} Planets".format(balance)
     except:
         message = "No valid address found. Please store address with /address first"
@@ -63,24 +66,17 @@ def monitorAsset():
    global localContext
 
    while True:
-       #try:
        if localContext:
            for userId in localContext.user_data:
                user_data = localContext.user_data[userId]
                if True == user_data.get('monitor'):
                    time_elapsed = (datetime.now() - user_data.get('startTime')).total_seconds()
                    if time_elapsed >= user_data.get('interval'):
-                       account_info = algoClient.account_info(user_data.get('address'))
-                       assets = account_info.get('assets')
-                       for asset in assets:
-                           if asset['asset-id'] == planetAssetId:
-                               planetsNow = asset['amount']
-                               if planetsNow == user_data.get('asset'):
-                                   localContext.bot.send_message(chat_id=userId, text="No New Planets Detected. Please Make sure your Sensor and App are still active")
-                               user_data['asset'] = planetsNow
+                       planetsNow = getAssetBalance(user_data.get('address'), planetAssetId)
+                       if planetsNow == user_data.get('asset'):
+                           localContext.bot.send_message(chat_id=userId, text="No New Planets Detected. Please Make sure your Sensor and App are still active")
+                       user_data['asset'] = planetsNow
                        user_data['startTime'] = datetime.now()
-       #except:
-           #print("Not setup yet")
            sleep(1)
 
 def startMonitor(update, context):
@@ -103,7 +99,22 @@ def stopMonitor(update, context):
 
     context.bot.send_message(chat_id=update.effective_chat.id, text="Monitor Stopped")
 
-    
+def getAssetBalanceCmd(update, context):
+   try:
+       algoAddress = context.user_data[update.effective_chat.id].get('address')
+   except:
+       message = "No Address set. Set address using /address"
+       context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+       return
+
+   try:
+       balance = getAssetBalance(algoAddress, context.args[0])
+       message = "Account Balance for Asset ID " + str(context.args[0]) + ": {}".format(balance)
+   except:
+       message = "No Balance found for Asset ID " + str(context.args[0])
+
+   context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
 def echo(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
     context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
@@ -133,6 +144,7 @@ planet_balance_handler = CommandHandler('getPlanetBalance', getPlanetBalance)
 planet_monitor_handler = CommandHandler('startPlanetMonitor', startMonitor)
 planet_monitor_disable_handler = CommandHandler('stopPlanetMonitor', stopMonitor)
 #echo_handler = MessageHandler(Filters.text & (~Filters.command), echo)
+asset_balance_handler = CommandHandler('getAssetBalance', getAssetBalanceCmd)
 unknown_handler = MessageHandler(Filters.command, unknown)
 
 t = threading.Thread(target=monitorAsset)
@@ -144,6 +156,7 @@ dispatcher.add_handler(address_handler)
 dispatcher.add_handler(algo_balance_handler)
 dispatcher.add_handler(planet_balance_handler)
 #dispatcher.add_handler(echo_handler)
+dispatcher.add_handler(asset_balance_handler)
 dispatcher.add_handler(planet_monitor_handler)
 dispatcher.add_handler(planet_monitor_disable_handler)
 dispatcher.add_handler(unknown_handler)
