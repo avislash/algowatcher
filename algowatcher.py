@@ -1,20 +1,26 @@
 import telegram
 import logging
-from telegram.ext import Updater, CommandHandler
+import threading
+from telegram.ext import Updater, CommandHandler, PicklePersistence
 from telegram.ext import MessageHandler, Filters
 from algosdk.v2client import algod
 from datetime import datetime
 from time import sleep
-import threading
 
 planetAssetId = 27165954
-algoNodeAddress = "http://NODE-URL:NODE-PORT"
-algoNodeToken = "Algorand Node API Token"
-botToken = 'Telegram API Token'
+
+with open('bot.pickle', "rb") as file:
+    botProperties = pickle.load(file)
+
+algoNodeAddress = botProperties.get('algoNodeAddress') #algoNodeAddress = "http://NODE-URL:NODE-PORT"
+algoNodeToken = botProperties.get('algoNodeToken') #algoNodeToken = "Algorand Node API Token"
+botToken = botProperties.get('botToken') #botToken = 'Telegram API Token'
+#botToken = botProperties.get('testBotToken') #botToken = 'Telegram API Token'
 
 algoClient = algod.AlgodClient(algoNodeToken, algoNodeAddress)
 monitor = False
 localContext = {}
+
 
 def getAssetBalance(algoAddress, assetId):
    global algoClient
@@ -31,10 +37,11 @@ def start(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 def updateAddress(update, context):
+    global localContext
     context.user_data[update.effective_chat.id] = {'address' : context.args[0], 'monitor' : False, 'asset': 0, 'startTime': datetime(70,1,1), 'interval': 30}
     message = "Address updated to " + str(context.args[0])
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-
+    localContext = context
 
 def getAlgoBalance(update, context):
     global algoClient
@@ -80,14 +87,13 @@ def monitorAsset():
            sleep(1)
 
 def startMonitor(update, context):
-    global localContext
-    try:
-        context.user_data[update.effective_chat.id]['monitor'] = True
-        localContext = context
-        context.bot.send_message(chat_id=update.effective_chat.id, text="Monitor Enabled")
-    except:
-        context.bot.send_message(chat_id=update.effective_chat.id, text="Unable to start monitor. Make sure you set an address with /address first")
-
+   global localContext
+   try:
+       context.user_data[update.effective_chat.id]['monitor'] = True
+       localContext = context
+       context.bot.send_message(chat_id=update.effective_chat.id, text="Monitor Enabled")
+   except:
+       context.bot.send_message(chat_id=update.effective_chat.id, text="Unable to start monitor. Make sure you set an address with /address first")
     
 def stopMonitor(update, context):
     global localContext
@@ -124,12 +130,9 @@ def unknown(update, context):
     message = "Unknown Command. Type /start to see list of available commands"
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
-
-
-
-
+persist = PicklePersistence(filename='botContext.pickle')
 bot = telegram.Bot(token=botToken)
-updater = Updater(token=botToken, use_context=True)
+updater = Updater(token=botToken, persistence=persist, use_context=True)
 dispatcher = updater.dispatcher
 
 
