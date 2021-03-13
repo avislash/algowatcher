@@ -11,19 +11,9 @@ from algosdk.v2client import algod
 from datetime import datetime
 from time import sleep
 
-planetAssetId = 27165954
-
-with open('bot.pickle', "rb") as file:
-    botProperties = pickle.load(file)
-
-algoNodeAddress = botProperties.get('algoNodeAddress') #algoNodeAddress = "http://NODE-URL:NODE-PORT"
-algoNodeToken = botProperties.get('algoNodeToken') #algoNodeToken = "Algorand Node API Token"
-botToken = botProperties.get('botToken') #botToken = 'Telegram API Token'
-#botToken = botProperties.get('testBotToken') #botToken = 'Telegram API Token'
-
-algoClient = algod.AlgodClient(algoNodeToken, algoNodeAddress)
+algoClient = {}
 localContext = {}
-
+planetAssetId = 27165954
 init = False;
 
 def _init(update, context):
@@ -188,44 +178,55 @@ def unknown(update, context):
     message = "Unknown Command. Type /start to see list of available commands"
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
-persist = PicklePersistence(filename='botContext.pickle')
-bot = telegram.Bot(token=botToken)
-updater = Updater(token=botToken, persistence=persist, use_context=True)
-dispatcher = updater.dispatcher
+def main():
+   global algoClient
+   with open('bot.pickle', "rb") as file:
+       botProperties = pickle.load(file)
+
+   algoNodeAddress = botProperties.get('algoNodeAddress') #algoNodeAddress = "http://NODE-URL:NODE-PORT"
+   algoNodeToken = botProperties.get('algoNodeToken') #algoNodeToken = "Algorand Node API Token"
+   #botToken = botProperties.get('botToken') #botToken = 'Telegram API Token'
+   botToken = botProperties.get('testBotToken') #botToken = 'Telegram API Token'
+
+   algoClient = algod.AlgodClient(algoNodeToken, algoNodeAddress)
+   persist = PicklePersistence(filename='botContext.pickle')
+   bot = telegram.Bot(token=botToken)
+   updater = Updater(token=botToken, persistence=persist, use_context=True)
+   dispatcher = updater.dispatcher
 
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+   logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
-init_handler = CommandHandler('init', _init)
-start_handler = CommandHandler('start', start)
-address_handler = CommandHandler('address', updateAddress)
-algo_balance_handler = CommandHandler('getAlgoBalance', getAlgoBalance)
-planet_balance_handler = CommandHandler('getPlanetBalance', getPlanetBalance)
-#planet_monitor_handler = CommandHandler('monitorPlanets', monitorPlanets)
-planet_monitor_handler = CommandHandler('startPlanetMonitor', startMonitor)
-planet_monitor_disable_handler = CommandHandler('stopPlanetMonitor', stopMonitor)
-planet_monitor_status_handler = CommandHandler('getMonitorStatus', getMonitorStatus)
-#echo_handler = MessageHandler(Filters.text & (~Filters.command), echo)
-asset_balance_handler = CommandHandler('getAssetBalance', getAssetBalanceCmd)
-unknown_handler = MessageHandler(Filters.command, unknown)
+   init_handler = CommandHandler('init', _init)
+   start_handler = CommandHandler('start', start)
+   address_handler = CommandHandler('address', updateAddress)
+   algo_balance_handler = CommandHandler('getAlgoBalance', getAlgoBalance)
+   planet_balance_handler = CommandHandler('getPlanetBalance', getPlanetBalance)
+   planet_monitor_handler = CommandHandler('startPlanetMonitor', startMonitor)
+   planet_monitor_disable_handler = CommandHandler('stopPlanetMonitor', stopMonitor)
+   planet_monitor_status_handler = CommandHandler('getMonitorStatus', getMonitorStatus)
+   asset_balance_handler = CommandHandler('getAssetBalance', getAssetBalanceCmd)
+   unknown_handler = MessageHandler(Filters.command, unknown)
 
 
-dispatcher.add_handler(init_handler)
-dispatcher.add_handler(start_handler)
-dispatcher.add_handler(address_handler)
-dispatcher.add_handler(algo_balance_handler)
-dispatcher.add_handler(planet_balance_handler)
-#dispatcher.add_handler(echo_handler)
-dispatcher.add_handler(asset_balance_handler)
-dispatcher.add_handler(planet_monitor_handler)
-dispatcher.add_handler(planet_monitor_disable_handler)
-dispatcher.add_handler(planet_monitor_status_handler)
-dispatcher.add_handler(unknown_handler)
+   dispatcher.add_handler(init_handler)
+   dispatcher.add_handler(start_handler)
+   dispatcher.add_handler(address_handler)
+   dispatcher.add_handler(algo_balance_handler)
+   dispatcher.add_handler(planet_balance_handler)
+   dispatcher.add_handler(asset_balance_handler)
+   dispatcher.add_handler(planet_monitor_handler)
+   dispatcher.add_handler(planet_monitor_disable_handler)
+   dispatcher.add_handler(planet_monitor_status_handler)
+   dispatcher.add_handler(unknown_handler)
 
-t = threading.Thread(target=monitorAsset, args=([dispatcher]))
-t.setDaemon(True)
-t.start()
+   t = threading.Thread(target=monitorAsset, args=([dispatcher]))
+   t.setDaemon(True)
+   t.start()
 
-updater.start_polling()
-updater.idle()
+   updater.start_polling()
+   updater.idle()
+
+if __name__ == "__main__":
+   main()
