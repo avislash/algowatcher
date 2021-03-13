@@ -4,6 +4,7 @@ import pickle
 import threading
 import requests
 import json
+import math
 
 from telegram.ext import Updater, CommandHandler, PicklePersistence
 from telegram.ext import MessageHandler, Filters
@@ -42,7 +43,9 @@ def start(update, context):
     getAlgoBal_str = "/getAlgoBalance - Get Current Balance (Note: Address must be set using /address first)\n\t"
     getPlanetBal_str = "/getPlanetBalance - Get Current  Planet Balance (Note: Address must be set using /address first)\n\t"
     getAssetBal_str = "/getAssetBalance <AssetId> - Get Current Asset Balance\n\t" 
-    startMonitor_str = "/startPlanetMonitor - Monitor Address to see if Planets have stopped being sent to the Account. This command will alert every 30 seconds if no new Planets are detected.\n\t" 
+
+    startMonitor_str = "\n/startPlanetMonitor <optional frequency> - Monitor Address to see if Planets have stopped being sent to the Account. This command will alert the user if no new Planets are detected at the specified <frequency>. The default frequency is 30s but can be changed by specifing in seconds or minutes. No supplied frequency will use the last set frequency. See example usage below. \n\t Ex: /startPlanetMonitor 45s - Monitor every 45s. \n       /startPlanetMonitor 14.5m - Monitor every 14.5 minutes. \n      /startPlanetMonitor - Start Monitor at last stored frequency \n\n\t"
+
     stopMonitor_str = "/stopPlanetMonitor - Disable Planet Monitoring\n\t"
     monitorStatus_str = "/getMonitorStatus - Check if Planet Monitoring is enabled/disabled\n\t\n"
 
@@ -104,13 +107,58 @@ def monitorAsset(dispatcher):
                        user_data['startTime'] = datetime.now()
            sleep(1)
 
+def roundFloat(val):
+    decimal = val - int(val)
+    if 0.5 <= decimal:
+        val = math.ceil(val)
+    else:
+        val = math.floor(val)
+
+    return int(val)
+
+
+def getInterval(args):
+   MINIMUM_CHECK_INTERVAL = 30 #seconds
+   interval = MINIMUM_CHECK_INTERVAL #default monitor rate is 30 seconds
+
+   if len(args) > 0:
+       if args[0].find('s') > 0: 
+           interval = roundFloat(float(args[0].split('s')[0]))
+       elif args[0].find('m') > 0:
+           interval = args[0].split('m')[0]
+           interval = int(float(interval)*60)
+
+   interval = interval if MINIMUM_CHECK_INTERVAL < interval else MINIMUM_CHECK_INTERVAL
+
+   return interval
+
+def getIntervalUnits(interval):
+   units = "seconds"
+   if interval > 59:
+       units = "minute"
+       if (interval/60) > 1:
+           units = units + "s"
+   return units
+
+def intervalToStr(interval):
+    units = getIntervalUnits(interval)
+    if interval > 59:
+        interval = interval/60
+
+    return str(interval) + " " + units
+
 def startMonitor(update, context):
    global localContext
-   try:
+   if 'monitor' in context.user_data[update.effective_chat.id]:
+       interval = context.user_data[update.effective_chat.id].get('interval')
+       if len(context.args) > 0 :
+           interval = getInterval(context.args)
+           context.user_data[update.effective_chat.id]['interval'] = interval
        context.user_data[update.effective_chat.id]['monitor'] = True
        localContext = context
-       context.bot.send_message(chat_id=update.effective_chat.id, text="Monitor Enabled")
-   except:
+       message = "Monitor Enabled. Monitoring every " + intervalToStr(interval)
+       context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+   else:
        context.bot.send_message(chat_id=update.effective_chat.id, text="Unable to start monitor. Make sure you set an address with /address first")
     
 def stopMonitor(update, context):
@@ -160,7 +208,8 @@ def getMonitorStatus(update, context):
    try:
        monitorStatus = context.user_data[update.effective_chat.id].get('monitor')
        if monitorStatus:
-           message = "Monitor Enabled"
+           interval = context.user_data[update.effective_chat.id].get('interval')
+           message = "Monitor Enabled. Monitoring every " + intervalToStr(interval)
        else:
            message = "Monitor Disabled"
    except:
@@ -168,11 +217,6 @@ def getMonitorStatus(update, context):
 
    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
-
-def echo(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
-    context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
-    context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
 
 def unknown(update, context):
     message = "Unknown Command. Type /start to see list of available commands"
@@ -185,8 +229,8 @@ def main():
 
    algoNodeAddress = botProperties.get('algoNodeAddress') #algoNodeAddress = "http://NODE-URL:NODE-PORT"
    algoNodeToken = botProperties.get('algoNodeToken') #algoNodeToken = "Algorand Node API Token"
-   #botToken = botProperties.get('botToken') #botToken = 'Telegram API Token'
-   botToken = botProperties.get('testBotToken') #botToken = 'Telegram API Token'
+   botToken = botProperties.get('botToken') #botToken = 'Telegram API Token'
+   #botToken = botProperties.get('testBotToken') #botToken = 'Telegram API Token'
 
    algoClient = algod.AlgodClient(algoNodeToken, algoNodeAddress)
    persist = PicklePersistence(filename='botContext.pickle')
