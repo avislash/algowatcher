@@ -152,7 +152,7 @@ In addition to Planets, AlgoWatcher can get the amount of any valid ASA register
 
 To setup Planet Monitoring use the **/startPlanetMonitor** command.  
 
-![startPlanetMonitor_default](images/startPlanetMonitor_default.png) 
+![startPlanetMonitor_default](images/startPlanetMonitor_default.PNG) 
 
 
 
