@@ -270,7 +270,7 @@ Project Link: [https://github.com/avislash/algowatcher](https://github.com/avisl
 [stars-shield]: https://img.shields.io/github/stars/avislash/repo.svg?style=for-the-badge
 [stars-url]: https://github.com/avislash/algowatcher/stargazers
 [issues-shield]: https://img.shields.io/github/issues/avislash/repo.svg?style=for-the-badge
-[issues-url]: https://github.com/avislash/lgowatcher/issues
+[issues-url]: https://github.com/avislash/algowatcher/issues
 [license-shield]: https://img.shields.io/github/license/avislash/repo.svg?style=for-the-badge
 [license-url]: https://github.com/avislash/algowatcher/blob/master/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
