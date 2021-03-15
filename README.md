@@ -22,7 +22,7 @@
   <h3 align="center">AlgoWatcher</h3>
 
   <p align="center">
-    A Telegram Bot for querying and monitoring an address the Algorand Blockchain 
+    A Telegram Bot for querying and monitoring the Algorand Blockchain 
     <br />
     <a href="https://github.com/avislash/algowatcher/issues">Report Bug</a>
     ·
