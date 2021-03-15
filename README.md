@@ -116,19 +116,94 @@ Refer to [python-telegram-bot](https://github.com/python-telegram-bot/python-tel
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-To use AlgoWatcher send a <b>/start </b>Telegram message to [@algowatcher](t.me/algowatcherbot) . The <b>/start</b> command displays all the commands available to the user as well as a brief description
+To use AlgoWatcher send a <b>/start </b>Telegram message to [@algowatcher](t.me/algowatcherbot) . 
+
+The <b>/start</b> command displays all the commands available to the user as well as a brief description
 
 
 
-![start_cmd](images/start_cmd.jpg)
+<img src="images/start_cmd.PNG" alt="start_cmd" style="zoom: 80%;" />
 
 
 
-_For more examples, please refer to the [Documentation](https://example.com)_
+To get started register an Algorand Public address to query and/or monitor via  <b>/address  ADDRESS </b>  
+
+![update_address](images/update_address.png)
+
+
+
+Now that the address has been set,  you can use the AlgoWatcher bot to check the current number of Algo that the address has via <b>/getAlgoBalance</b>
+
+![getAlgoBalance](images/getAlgoBalance.PNG)
+
+
+
+AlgoWatcher can be used to get the amount of Planets (an Algorand Special Asset [ASA]) in the address as well with <b>/getPlanetBalance</b>  
+
+![getPlanetBalance](images/getPlanetBalance.PNG)
+
+
+
+In addition to Planets, AlgoWatcher can get the amount of any valid ASA registered to the Algorand Address by using <b>/getAssetBalance ASSET_ID</b>
+
+![getAssetBalance](images/getAssetBalance.PNG)
+
+
+
+To setup Planet Monitoring use the **/startPlanetMonitor** command.  
+
+![startPlanetMonitor_default](images/startPlanetMonitor_default.png) 
+
+
+
+When no inputs are supplied to the **/startPlanetMonitor** command then the last set interval is used (note: The default interval is 30seconds and is set when using the **/address** command). 
+
+![startPlanetMonitor_norgs](images/startPlanetMonitor_noargs.PNG)
+
+To change the interval use 
+
+**/startPlanetMonitor INTERVALs**  to specify the interval in **seconds**  or
+
+![startPlanetMonitor_seconds](images/startPlanetMonitor_seconds.PNG)
+
+
+
+**/startPlanetMonitor INTERVALm**  to specify the interval in minutes
+
+![startPlanetMonitor_minutes](images/startPlanetMonitor_minutes.PNG)
+
+Note: The Planet Monitor only accepts inputs of seconds and minutes at this time since that covers the frequency range of how quickly Planets are issued to Algorand Accounts by PlanetWatch. The bot can be updated to accommodate input of hours and days as well should the community decide it.  
+
+
+
+Once started the Planet Monitor will alert the user at the specified interval if it does not detect any new Planets coming in.
+
+![planetMonitor_example](images/planetMonitor_example.PNG)
+
+
+
+To stop the Planet monitor use **/stopPlanetMonitor**
+
+![stopPlanetMonitor](images/stopPlanetMonitor.PNG)
+
+
+
+After stopping the Planet Monitor, the **/startPlanetMonitor** command can be used at any time to start the Planet Monitor back up either at the last set interval or a newly specified one. The monitoring interval can also be changed at any time without needing to stop monitor.
+
+![restartPlanetMonitor](images/restartPlanetMonitor.PNG)
+
+
+
+The **/getMonitorStatus** command can be used to check the state of the Planet Monitor at any time
+
+![getMonitorStatus](getMonitorStatus.PNG)
+
+
 
 
 
 <!-- ROADMAP -->
+
 ## Roadmap
 
 See the [open issues](https://github.com/avislash/algowatcher/issues) for a list of proposed features (and known issues).
@@ -158,15 +233,34 @@ See `LICENSE` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Avi Misra - avi@algowatcher.net
+Avi Misra - | Email: avi@algowatcher.net | Telegram Handle: [@avislash](t.me/avislash)
+
+
+
+AlgoWatcher Bot Telegram Handle - [@AlgoWatcher](t.me/algowatcherbot)
+
+AlgoWatcher Telegram Group - [@AlgoWatchers](t.me/algowatchers)
+
+
 
 Project Link: [https://github.com/avislash/algowatcher](https://github.com/avislash/algowatcher)
 
 
 
+<!--- Additional Documents and Resources -->
 
+## Additional Documents & Resources
 
+- [Algorand Developers Portal](https://developer.algorand.org/)
 
+  - [Workspace Setup](https://developer.algorand.org/docs/build-apps/setup/) - This provides a great introduction and overview of the Algorand Developer Tools and Workspace
+  - [Hello World Transaction](https://developer.algorand.org/docs/build-apps/hello_world/) - This is provides a great example (in many languages) of how to do a transaction on the Algorand Network
+
+- [Your First Telegram Bot](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Extensions-%E2%80%93-Your-first-Bot)
+
+  - Great overview of the Python Telegram Bot SDK and provides a great overview of how to register a Bot in Telegram and hook it in with the Python Telegram Bot SDK. 
+
+  
 
 
 
