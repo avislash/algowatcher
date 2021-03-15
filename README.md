@@ -120,9 +120,7 @@ To use AlgoWatcher send a <b>/start </b>Telegram message to [@algowatcher](t.me/
 
 
 
-```
 ![start_cmd](images/start_cmd.jpg)
-```
 
 
 
