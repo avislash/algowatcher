@@ -19,30 +19,27 @@
 
 <!-- PROJECT LOGO -->
 <br />
+
 <p align="center">
   <a href="https://github.com/avislash/algowatcher">
     <img src="images/logo.png" alt="Logo" width="80" height="80">
   </a>
-
-  <h3 align="center">project_title</h3>
+  <h3 align="center">AlgoWatcher</h3>
 
   <p align="center">
-    project_description
+    A Telegram Bot for querying and monitoring an address the Algorand Blockchain 
     <br />
-    <a href="https://github.com/avislash/algowatcher"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/avislash/algowatcher">View Demo</a>
-    ·
     <a href="https://github.com/avislash/algowatcher/issues">Report Bug</a>
     ·
     <a href="https://github.com/avislash/algowatcher/issues">Request Feature</a>
   </p>
-</p>
+
+
 
 
 
 <!-- TABLE OF CONTENTS -->
+
 <details open="open">
   <summary><h2 style="display: inline-block">Table of Contents</h2></summary>
   <ol>
@@ -267,14 +264,14 @@ Project Link: [https://github.com/avislash/algowatcher](https://github.com/avisl
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 [contributors-shield]: https://img.shields.io/github/contributors/avislash/repo.svg?style=for-the-badge
-[contributors-url]: https://github.com/avislash/repo/graphs/contributors
+[contributors-url]: https://github.com/avislash/algowatcher/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/avislash/repo.svg?style=for-the-badge
-[forks-url]: https://github.com/avislash/repo/network/members
+[forks-url]: https://github.com/avislash/algowatcher/network/members
 [stars-shield]: https://img.shields.io/github/stars/avislash/repo.svg?style=for-the-badge
-[stars-url]: https://github.com/avislash/repo/stargazers
+[stars-url]: https://github.com/avislash/algowatcher/stargazers
 [issues-shield]: https://img.shields.io/github/issues/avislash/repo.svg?style=for-the-badge
-[issues-url]: https://github.com/avislash/repo/issues
+[issues-url]: https://github.com/avislash/lgowatcher/issues
 [license-shield]: https://img.shields.io/github/license/avislash/repo.svg?style=for-the-badge
-[license-url]: https://github.com/avislash/repo/blob/master/LICENSE.txt
+[license-url]: https://github.com/avislash/algowatcher/blob/master/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/avinash-misra-23825539/
