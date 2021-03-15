@@ -8,12 +8,6 @@
 *** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
 *** https://www.markdownguide.org/basic-syntax/#reference-style-links
 -->
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![AGPL License][license-shield]][license-url]
-[![LinkedIn][linkedin-shield]][linkedin-url]
 
 
 
@@ -22,8 +16,9 @@
 
 <p align="center">
   <a href="https://github.com/avislash/algowatcher">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
+    <!--<img src="images/logo.png" alt="Logo" width="80" height="80"> -->
   </a>
+
   <h3 align="center">AlgoWatcher</h3>
 
   <p align="center">
@@ -230,15 +225,13 @@ See `LICENSE` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Avi Misra - | Email: avi@algowatcher.net | Telegram Handle: [@avislash](t.me/avislash)
+Avi Misra - | Email: avi@algowatcher.net | Telegram Handle: [@avislash](t.me/avislash) | [![LinkedIn][linkedin-shield]][linkedin-url]
 
 
 
 AlgoWatcher Bot Telegram Handle - [@AlgoWatcher](t.me/algowatcherbot)
 
 AlgoWatcher Telegram Group - [@AlgoWatchers](t.me/algowatchers)
-
-
 
 Project Link: [https://github.com/avislash/algowatcher](https://github.com/avislash/algowatcher)
 
@@ -249,20 +242,20 @@ Project Link: [https://github.com/avislash/algowatcher](https://github.com/avisl
 ## Additional Documents & Resources
 
 - [Algorand Developers Portal](https://developer.algorand.org/)
-
   - [Workspace Setup](https://developer.algorand.org/docs/build-apps/setup/) - This provides a great introduction and overview of the Algorand Developer Tools and Workspace
   - [Hello World Transaction](https://developer.algorand.org/docs/build-apps/hello_world/) - This is provides a great example (in many languages) of how to do a transaction on the Algorand Network
-
 - [Your First Telegram Bot](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Extensions-%E2%80%93-Your-first-Bot)
-
   - Great overview of the Python Telegram Bot SDK and provides a great overview of how to register a Bot in Telegram and hook it in with the Python Telegram Bot SDK. 
 
-  
+- [Best ReadME Template](https://github.com/othneildrew/Best-README-Template)  - Where this README template was taken from. It really is the best template!
+
+
 
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+
 [contributors-shield]: https://img.shields.io/github/contributors/avislash/repo.svg?style=for-the-badge
 [contributors-url]: https://github.com/avislash/algowatcher/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/avislash/repo.svg?style=for-the-badge
