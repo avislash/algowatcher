@@ -128,7 +128,7 @@ The <b>/start</b> command displays all the commands available to the user as wel
 
 To get started register an Algorand Public address to query and/or monitor via  <b>/address  ADDRESS </b>  
 
-![update_address](images/update_address.png)
+![update_address](images/update_address.PNG)
 
 
 
@@ -196,7 +196,7 @@ After stopping the Planet Monitor, the **/startPlanetMonitor** command can be us
 
 The **/getMonitorStatus** command can be used to check the state of the Planet Monitor at any time
 
-![getMonitorStatus](getMonitorStatus.PNG)
+![getMonitorStatus](images/getMonitorStatus.PNG)
 
 
 
