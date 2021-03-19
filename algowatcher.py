@@ -42,7 +42,7 @@ def start(update, context):
     getPlanetBal_str = "/getPlanetBalance - Get Current  Planet Balance (Note: Address must be set using /address first)\n\t"
     getAssetBal_str = "/getAssetBalance <AssetId> - Get Current Asset Balance\n\t" 
 
-    startMonitor_str = "\n/startPlanetMonitor <optional frequency> - Monitor Address to see if Planets have stopped being sent to the Account. This command will alert the user if no new Planets are detected at the specified <frequency>. The default frequency is 30s but can be changed by specifing in seconds or minutes. No supplied frequency will use the last set frequency. See example usage below. \n\t Ex: /startPlanetMonitor 45s - Monitor every 45s. \n       /startPlanetMonitor 14.5m - Monitor every 14.5 minutes. \n      /startPlanetMonitor - Start Monitor at last stored frequency \n\n\t"
+    startMonitor_str = "\n/startPlanetMonitor <optional frequency> - Monitor Address to see if Planets have stopped being sent to the Account. This command will alert the user if no new Planets are detected at the specified <frequency>. The default frequency is 2m but can be changed by specifing in seconds or minutes. No supplied frequency will use the last set frequency. See example usage below. \n\t Ex: /startPlanetMonitor 45s - Monitor every 45s. \n       /startPlanetMonitor 14.5m - Monitor every 14.5 minutes. \n      /startPlanetMonitor - Start Monitor at last stored frequency \n\n\t"
 
     stopMonitor_str = "/stopPlanetMonitor - Disable Planet Monitoring\n\t"
     monitorStatus_str = "/getMonitorStatus - Check if Planet Monitoring is enabled/disabled\n\t\n"
@@ -59,10 +59,16 @@ def start(update, context):
 #and also initializes the user_data dictionary for the user
 def updateAddress(update, context):
     global localContext
-    context.user_data[update.effective_chat.id] = {'address' : context.args[0], 'monitor' : False, 'asset': 0, 'startTime': datetime(70,1,1), 'interval': 30}
-    message = "Address updated to " + str(context.args[0])
-    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+    algoAddress = ' '
+    if len(context.args) > 0:
+        algoAddress = context.args[0]
+        context.user_data[update.effective_chat.id] = {'address' : algoAddress, 'monitor' : False, 'asset': 0, 'startTime': datetime(70,1,1), 'interval': 120}
+    else:
+        context.user_data[update.effective_chat.id] = {}
+
     localContext = context
+    message = "Address updated to " + algoAddress
+    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 #Helper function that gets the current number of ASA Tokens denoted by assetId
 #in located at the public Algorand Address (algoAddress)

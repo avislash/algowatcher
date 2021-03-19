@@ -148,7 +148,7 @@ To setup Planet Monitoring use the **/startPlanetMonitor** command.
 
 
 
-When no inputs are supplied to the **/startPlanetMonitor** command then the last set interval is used (note: The default interval is 30seconds and is set when using the **/address** command). 
+When no inputs are supplied to the **/startPlanetMonitor** command then the last set interval is used (note: The default interval is 2 minutes and is set when using the **/address** command). 
 
 ![startPlanetMonitor_norgs](images/startPlanetMonitor_noargs.PNG)
 
