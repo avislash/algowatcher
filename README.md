@@ -108,7 +108,7 @@ Refer to [python-telegram-bot](https://github.com/python-telegram-bot/python-tel
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-To use AlgoWatcher send a <b>/start </b>Telegram message to [@algowatcher](t.me/algowatcherbot) . 
+To use AlgoWatcher send a <b>/start </b>Telegram message to [@algowatcher](https://t.me/algowatcherbot) . 
 
 The <b>/start</b> command displays all the commands available to the user as well as a brief description
 
@@ -225,13 +225,13 @@ See `LICENSE` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Avi Misra - | Email: avi@algowatcher.net | Telegram Handle: [@avislash](t.me/avislash) | [![LinkedIn][linkedin-shield]][linkedin-url]
+Avi Misra - | Email: avi@algowatcher.net | Telegram Handle: [@avislash](https://t.me/avislash) | [![LinkedIn][linkedin-shield]][linkedin-url]
 
 
 
-AlgoWatcher Bot Telegram Handle - [@AlgoWatcher](t.me/algowatcherbot)
+AlgoWatcher Bot Telegram Handle - [@AlgoWatcher](https://t.me/algowatcherbot)
 
-AlgoWatcher Telegram Group - [@AlgoWatchers](t.me/algowatchers)
+AlgoWatcher Telegram Group - [@AlgoWatchers](https://t.me/algowatchers)
 
 Project Link: [https://github.com/avislash/algowatcher](https://github.com/avislash/algowatcher)
 
