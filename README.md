@@ -11,12 +11,12 @@
 
 
 
-<!-- PROJECT LOGO -->
+<!--PROJECT LOGO -->
 <br />
 
 <p align="center">
-  <a href="https://github.com/avislash/algowatcher">
-    <!--<img src="images/logo.png" alt="Logo" width="80" height="80"> -->
+  <a href="https://github.com/github_username/repo_name">
+    <img src="images/algowatcher_logo.jpg" alt="Logo" width="250" height="250">
   </a>
 
   <h3 align="center">AlgoWatcher</h3>
@@ -28,7 +28,6 @@
     ·
     <a href="https://github.com/avislash/algowatcher/issues">Request Feature</a>
   </p>
-
 
 
 
