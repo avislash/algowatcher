@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/github_username/repo_name">
-    <img src="images/algowatcher_logo.jpg" alt="Logo" width="80" height="80">
+    <img src="images/algowatcher_logo.jpg" alt="Logo" width="250" height="250">
   </a>
 
   <h3 align="center">AlgoWatcher</h3>
