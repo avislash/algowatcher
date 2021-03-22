@@ -11,7 +11,7 @@ def roundFloat(val):
 
 
 def getInterval(args):
-   MINIMUM_CHECK_INTERVAL = 30 #seconds
+   MINIMUM_CHECK_INTERVAL = 5 #seconds. Monitor at each new Algorand Block
    interval = MINIMUM_CHECK_INTERVAL #default monitor rate is 30 seconds
 
    if len(args) > 0:
