@@ -19,18 +19,6 @@ from util import util
 algoClient = {}
 localContext = {}
 planetAssetId = 27165954 #Asset ID for Planet ASA
-init = False;
-
-#init function used to load in values saved from the last bot session
-def _init(update, context):
-   global localContext
-   global init
-   if False == init:
-       localContext = context
-       context.bot.send_message(chat_id=update.effective_chat.id, text="Initialized")
-       init = True
-
-
 
 #Displays the start menu whenever user types /start in Telegram chat
 #This contains all commands available to user along with brief description
@@ -66,10 +54,9 @@ def updateAddress(update, context):
     else:
         context.user_data[update.effective_chat.id] = {}
 
-    localContext = context
+    localContext[update.effective_chat.id] = context.user_data[update.effective_chat.id]
     message = "Address updated to " + algoAddress
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-
 #Helper function that gets the current number of ASA Tokens denoted by assetId
 #in located at the public Algorand Address (algoAddress)
 def getAssetBalance(algoAddress, assetId):
@@ -125,7 +112,7 @@ def startMonitor(update, context):
            interval = util.getInterval(context.args)
            context.user_data[update.effective_chat.id]['interval'] = interval
        context.user_data[update.effective_chat.id]['monitor'] = True
-       localContext = context
+       localContext[update.effective_chat.id] = context.user_data[update.effective_chat.id]
        message = "Monitor Enabled. Monitoring every " + util.intervalToStr(interval)
        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
    else:
@@ -136,7 +123,7 @@ def stopMonitor(update, context):
     global localContext
     try:
         context.user_data[update.effective_chat.id]['monitor'] = False
-        localContext = context
+        localContext[update.efefetive_chat.id] = context.user_data[update.effective_chat.id]
     except:
         pass
 
@@ -214,20 +201,25 @@ def monitorAsset(dispatcher):
 
    while True:
        if localContext:
-           for userId in localContext.user_data:
-               user_data = localContext.user_data[userId]
-               if True == user_data.get('monitor'):
-                   time_elapsed = (datetime.now() - user_data.get('startTime')).total_seconds()
-                   if time_elapsed >= user_data.get('interval'):
-                       planetsNow = getAssetBalance(user_data.get('address'), planetAssetId)
-                       if planetsNow == user_data.get('asset'):
-                           dispatcher.bot.send_message(chat_id=userId, text="No New Planets Detected. Please Make sure your Sensor and App are still active")
-                       user_data['asset'] = planetsNow
-                       user_data['startTime'] = datetime.now()
+           #print(localContext)
+           for userId in localContext:
+               user_data = localContext[userId]
+               try:
+                   if True == user_data.get('monitor'):
+                       time_elapsed = (datetime.now() - user_data.get('startTime')).total_seconds()
+                       if time_elapsed >= user_data.get('interval'):
+                           planetsNow = getAssetBalance(user_data.get('address'), planetAssetId)
+                           if planetsNow == user_data.get('asset'):
+                               dispatcher.bot.send_message(chat_id=userId, text="No New Planets Detected. Please Make sure your Sensor and App are still active")
+                           user_data['asset'] = planetsNow
+                           user_data['startTime'] = datetime.now()
+               except Exception as exception:
+                   print(exception)  
            sleep(1)
 
 def main():
    global algoClient
+   global localContext
    with open('bot.pickle', "rb") as file:
        botProperties = pickle.load(file)
 
@@ -241,11 +233,14 @@ def main():
    updater = Updater(token=botToken, persistence=persist, use_context=True)
    dispatcher = updater.dispatcher
 
-
    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
+   with open("botContext.pickle", "rb") as file:
+       botData = pickle.load(file)
 
-   init_handler = CommandHandler('init', _init)
+   for userId in botData['user_data']:
+        localContext[userId] = botData['user_data'][userId]
+   
    start_handler = CommandHandler('start', start)
    address_handler = CommandHandler('address', updateAddress)
    algo_balance_handler = CommandHandler('getAlgoBalance', getAlgoBalance)
@@ -257,7 +252,6 @@ def main():
    unknown_handler = MessageHandler(Filters.command, unknown)
 
 
-   dispatcher.add_handler(init_handler)
    dispatcher.add_handler(start_handler)
    dispatcher.add_handler(address_handler)
    dispatcher.add_handler(algo_balance_handler)
