@@ -9,6 +9,13 @@ def roundFloat(val):
 
     return int(val)
 
+def getTxnsPerInterval(args):
+   txPerInterval = 1
+   if len(args) > 1:
+       txns = int(args[1])
+       txPerInterval = txns if txns > 1 else 1
+
+   return txPerInterval
 
 def getInterval(args):
    MINIMUM_CHECK_INTERVAL = 5 #seconds. Monitor at each new Algorand Block

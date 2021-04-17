@@ -9,7 +9,7 @@ import math
 from telegram.ext import Updater, CommandHandler, PicklePersistence
 from telegram.ext import MessageHandler, Filters
 from algosdk.v2client import algod
-from datetime import datetime
+from datetime import datetime, timezone
 from time import sleep
 from util import util
 
@@ -30,7 +30,7 @@ def start(update, context):
     getPlanetBal_str = "/getPlanetBalance - Get Current  Planet Balance (Note: Address must be set using /address first)\n\t"
     getAssetBal_str = "/getAssetBalance <AssetId> - Get Current Asset Balance\n\t" 
 
-    startMonitor_str = "\n/startPlanetMonitor <optional frequency> - Monitor Address to see if Planets have stopped being sent to the Account. This command will alert the user if no new Planets are detected at the specified <frequency>. The default frequency is 2m but can be changed by specifing in seconds or minutes. No supplied frequency will use the last set frequency. See example usage below. \n\t Ex: /startPlanetMonitor 45s - Monitor every 45s. \n       /startPlanetMonitor 14.5m - Monitor every 14.5 minutes. \n      /startPlanetMonitor - Start Monitor at last stored frequency \n\n\t"
+    startMonitor_str = "\n/startPlanetMonitor <optional frequency> <optional Tx/Freq> - Monitor Address to verify the specified number of Planet Transactions have occured. This command will alert the user if 1 or more Planet Transactions are not detected at the specified <frequency>. The default frequency is 2m but can be changed by specifing in seconds or minutes. The default transactions per second is set to 1. No supplied frequency will use the last set values. See example usage below. \n\t Ex: /startPlanetMonitor 45s - Monitor every 45s. \n       /startPlanetMonitor 14.5m 2 - Monitor for 2 Planet Transactions every 14.5 minutes. \n      /startPlanetMonitor - Start Monitor at last stored frequency and Tx/freq values\n\n\t"
 
     stopMonitor_str = "/stopPlanetMonitor - Disable Planet Monitoring\n\t"
     monitorStatus_str = "/getMonitorStatus - Check if Planet Monitoring is enabled/disabled\n\t\n"
@@ -50,13 +50,29 @@ def updateAddress(update, context):
     algoAddress = ' '
     if len(context.args) > 0:
         algoAddress = context.args[0]
-        context.user_data[update.effective_chat.id] = {'address' : algoAddress, 'monitor' : False, 'asset': 0, 'startTime': datetime(70,1,1), 'interval': 120}
+        context.user_data[update.effective_chat.id] = {'address' : algoAddress, 'monitor' : False, 'asset': 0, 'startTime': datetime.utcnow(), 'txnsPerInterval': 1, 'interval': 120,}
     else:
         context.user_data[update.effective_chat.id] = {}
 
     localContext[update.effective_chat.id] = context.user_data[update.effective_chat.id]
     message = "Address updated to " + algoAddress
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+#Method to query amount of ASA Txns an account has had since
+#a given time interval
+def getASATxns(address, time, asaId):
+    txn_base_url =  "https://algoexplorerapi.io/idx2/v2/accounts/"
+    txn_info =  "/transactions?tx-type=axfer&asset-id=" + str(asaId)
+    time_str = "&after-time="+time.isoformat()+"Z"
+    txn_url = txn_base_url+address+txn_info+time_str
+    acct_info = json.loads(requests.get(txn_url).text)
+    return acct_info['transactions']
+    
+#Helper method to get the number of Planet Transactions
+#an account has received since an indicated time
+def getPlanetTxns(address, time):
+    return getASATxns(address, time, planetAssetId)
+
 #Helper function that gets the current number of ASA Tokens denoted by assetId
 #in located at the public Algorand Address (algoAddress)
 def getAssetBalance(algoAddress, assetId):
@@ -106,14 +122,25 @@ def getPlanetBalance(update, context):
 #monitor at the last set interval (default 30 seconds)
 def startMonitor(update, context):
    global localContext
-   if 'monitor' in context.user_data[update.effective_chat.id]:
+   if context.user_data and 'monitor' in context.user_data[update.effective_chat.id]:
        interval = context.user_data[update.effective_chat.id].get('interval')
+       txnsPerInterval = context.user_data[update.effective_chat.id].get('txnsPerInterval')
        if len(context.args) > 0 :
            interval = util.getInterval(context.args)
+           txnsPerInterval = util.getTxnsPerInterval(context.args)
            context.user_data[update.effective_chat.id]['interval'] = interval
+           context.user_data[update.effective_chat.id]['txnsPerInterval'] = txnsPerInterval
+
+       context.user_data[update.effective_chat.id]['startTime'] = datetime.utcnow()
        context.user_data[update.effective_chat.id]['monitor'] = True
        localContext[update.effective_chat.id] = context.user_data[update.effective_chat.id]
-       message = "Monitor Enabled. Monitoring every " + util.intervalToStr(interval)
+
+       txStr = "for " + str(txnsPerInterval) + " transaction"
+
+       if txnsPerInterval > 1:
+           txStr = txStr+"s"
+
+       message = "Monitor Enabled. Monitoring " + txStr + " every " + util.intervalToStr(interval)
        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
    else:
        context.bot.send_message(chat_id=update.effective_chat.id, text="Unable to start monitor. Make sure you set an address with /address first")
@@ -177,7 +204,14 @@ def getMonitorStatus(update, context):
        monitorStatus = context.user_data[update.effective_chat.id].get('monitor')
        if monitorStatus:
            interval = context.user_data[update.effective_chat.id].get('interval')
-           message = "Monitor Enabled. Monitoring every " + util.intervalToStr(interval)
+           txnsPerInterval = context.user_data[update.effective_chat.id].get('txnsPerInterval')
+
+           txnStr = str(txnsPerInterval) + " transaction"
+
+           if txnsPerInterval > 1:
+               txnStr = txnStr + "s"
+
+           message = "Monitor Enabled. Monitoring for " + txnStr + " every " +  util.intervalToStr(interval)
        else:
            message = "Monitor Disabled"
    except:
@@ -206,13 +240,18 @@ def monitorAsset(dispatcher):
                user_data = localContext[userId]
                try:
                    if True == user_data.get('monitor'):
-                       time_elapsed = (datetime.now() - user_data.get('startTime')).total_seconds()
+                       time_elapsed = (datetime.utcnow() - user_data.get('startTime')).total_seconds()
                        if time_elapsed >= user_data.get('interval'):
-                           planetsNow = getAssetBalance(user_data.get('address'), planetAssetId)
-                           if planetsNow == user_data.get('asset'):
-                               dispatcher.bot.send_message(chat_id=userId, text="No New Planets Detected. Please Make sure your Sensor and App are still active")
-                           user_data['asset'] = planetsNow
-                           user_data['startTime'] = datetime.now()
+                           numTxns = len(getPlanetTxns(user_data.get('address'), user_data.get('startTime')))
+                           if numTxns < user_data.get('txnsPerInterval'):
+                               message = "No New Planet Transactions Detected"
+
+                               if user_data.get('txnsPerInterval') > 1 :
+                                   message = message + ": Expected " + str(user_data.get('txnsPerInterval')) + " Got " + str(numTxns) 
+                               
+                               message =  message + ". Please make sure your Sensor and App are still active." 
+                               dispatcher.bot.send_message(chat_id=userId, text=message)
+                           user_data['startTime'] = datetime.utcnow()
                except Exception as exception:
                    print(exception)  
            sleep(1)
@@ -235,11 +274,15 @@ def main():
 
    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-   with open("botContext.pickle", "rb") as file:
-       botData = pickle.load(file)
+   try:
+       with open("botContext.pickle", "rb") as file:
+           botData = pickle.load(file)
+   except:
+       botData = []
 
-   for userId in botData['user_data']:
-        localContext[userId] = botData['user_data'][userId]
+   if botData:
+       for userId in botData['user_data']:
+            localContext[userId] = botData['user_data'][userId]
    
    start_handler = CommandHandler('start', start)
    address_handler = CommandHandler('address', updateAddress)
