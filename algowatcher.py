@@ -9,7 +9,7 @@ import math
 from telegram.ext import Updater, CommandHandler, PicklePersistence
 from telegram.ext import MessageHandler, Filters
 from algosdk.v2client import algod
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from time import sleep
 from util import util
 
@@ -19,7 +19,7 @@ from util import util
 algoClient = {}
 localContext = {}
 planetAssetId = 27165954 #Asset ID for Planet ASA
-
+planetAssetScaleFactor = 1e-6
 #Displays the start menu whenever user types /start in Telegram chat
 #This contains all commands available to user along with brief description
 def start(update, context):
@@ -30,17 +30,19 @@ def start(update, context):
     getPlanetBal_str = "/getPlanetBalance - Get Current  Planet Balance (Note: Address must be set using /address first)\n\t"
     getAssetBal_str = "/getAssetBalance <AssetId> - Get Current Asset Balance\n\t" 
 
-    startMonitor_str = "\n/startPlanetMonitor <optional frequency> <optional Tx/Freq> - Monitor Address to verify the specified number of Planet Transactions have occured. This command will alert the user if 1 or more Planet Transactions are not detected at the specified <frequency>. The default frequency is 2m but can be changed by specifing in seconds or minutes. The default transactions per second is set to 1. No supplied frequency will use the last set values. See example usage below. \n\t Ex: /startPlanetMonitor 45s - Monitor every 45s. \n       /startPlanetMonitor 14.5m 2 - Monitor for 2 Planet Transactions every 14.5 minutes. \n      /startPlanetMonitor - Start Monitor at last stored frequency and Tx/freq values\n\n\t"
+    startMonitor_str = "\n/startPlanetMonitor <optional frequency> <optional Tx/Period> - Monitor Address to verify the specified number of Planet Transactions have occured. This command will alert the user if 1 or more Planet Transactions are not detected at the specified <frequency>. The default frequency is 2m but can be changed by specifing in seconds or minutes. The default transactions per monitor period is set to 1. No supplied frequency will use the last set values. See example usage below. \n\t Ex: /startPlanetMonitor 45s - Monitor every 45s. \n       /startPlanetMonitor 14.5m 2 - Monitor for 2 Planet Txns every 14.5 minutes. \n      /startPlanetMonitor - Start Monitor at last stored frequency and Tx/freq values\n\n\t"
 
     stopMonitor_str = "/stopPlanetMonitor - Disable Planet Monitoring\n\t"
     monitorStatus_str = "/getMonitorStatus - Check if Planet Monitoring is enabled/disabled\n\t\n"
+    planetpayout_str = "/getLastPlanetPayout - Query Amount and Timestamp of the last Planet Payout\n\t\n"
+    average_payout_str = "/getAveragePlanetPayout - Get Running 7 Day Average Planet Payout\n\t\n"
 
     coffe_str = "Like the bot and want to buy the developer coffe? Send an algo to ONPJRXNOOAIZVJ3VPSZKFGBMSYQRACNZUMW5P6FNQTKUZ3BALYCDBUMNAM\n\n"
     support_str = "For Questions, Suggestions, and Feedback join the AlgoWatchers Telegram Group (t.me/algowatchers).\n" 
 
     final_str = coffe_str + support_str
 
-    message = greeting_str + start_str + address_str + getAlgoBal_str + getAssetBal_str + getPlanetBal_str + startMonitor_str + stopMonitor_str + monitorStatus_str + final_str
+    message = greeting_str + start_str + address_str + getAlgoBal_str + getAssetBal_str + getPlanetBal_str + startMonitor_str + stopMonitor_str + monitorStatus_str + planetpayout_str + average_payout_str + final_str
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 #Sets the Algo Public Address to monitor/query balances for
@@ -72,6 +74,48 @@ def getASATxns(address, time, asaId):
 #an account has received since an indicated time
 def getPlanetTxns(address, time):
     return getASATxns(address, time, planetAssetId)
+
+#Method to compute the running 7-day average
+#of all Planet Payouts for the given address
+def getAveragePlanetPayout(address):
+    txnKey = 'asset-transfer-transaction'
+    today = datetime.utcnow().isoformat() + "Z"
+    lastWeek = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
+    txn_base_url =  "https://algoexplorerapi.io/idx2/v2/accounts/" + address
+    txn_info =  "/transactions?tx-type=axfer&asset-id=" + str(planetAssetId)
+    end_time = "&before-time=" + today
+    start_time = "&after-time="+ lastWeek
+    val="&currency-greater-than=1"
+    txn_url = txn_base_url + txn_info + start_time + end_time + val
+    acct_info = json.loads(requests.get(txn_url).text)
+    txns = acct_info['transactions']
+    numTxns = 0
+    amount = 0
+
+    for txn in txns:
+        if txnKey in txn:
+            amount = amount + txn[txnKey]['amount']
+            numTxns = numTxns + 1
+
+    if numTxns > 0 : 
+        amount = amount/numTxns
+
+    return amount*planetAssetScaleFactor
+    
+#Method to get the last Planet Paid out for
+#the given address
+def getLastPlanetPayout(address):
+    now = datetime.utcnow().isoformat() + "Z"
+    txn_base_url =  "https://algoexplorerapi.io/idx2/v2/accounts/" + address
+    txn_info =  "/transactions?tx-type=axfer&asset-id=" + str(planetAssetId)
+    before_time = "&before-time=" + now
+    val="&currency-greater-than=1"
+    txn_url = txn_base_url + txn_info + before_time + val
+    acct_info = json.loads(requests.get(txn_url).text)
+    last_txn = acct_info['transactions'][0]
+    time = last_txn['round-time']
+    amount = last_txn['asset-transfer-transaction']['amount'] * planetAssetScaleFactor
+    return [amount, time]
 
 #Helper function that gets the current number of ASA Tokens denoted by assetId
 #in located at the public Algorand Address (algoAddress)
@@ -156,6 +200,48 @@ def stopMonitor(update, context):
 
     context.bot.send_message(chat_id=update.effective_chat.id, text="Monitor Stopped")
 
+def getAveragePlanetPayoutCmd(update, context):
+    algoAddress = context.user_data[update.effective_chat.id].get('address')
+
+    if not algoAddress: 
+        message = "No Address set. Set address using /address"
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+        return
+
+    try:
+        amount = getAveragePlanetPayout(algoAddress)
+        planet_str = format(amount, '.4f') + " Planet"
+ 
+        if 1 != amount:
+            planet_str = planet_str + "s"
+
+        message = planet_str + " paid out on average over the last 7 days"
+    except:
+        message = "No Planet Payouts found for account " + algoAddress
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+#Callback function for reporting the last 
+#recorded Planet payout to the user
+def getLastPlanetPayoutCmd(update, context):
+
+    algoAddress = context.user_data[update.effective_chat.id].get('address')
+    if not algoAddress: 
+        message = "No Address set. Set address using /address"
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+        return
+   
+    try:
+        [amount, round_time] = getLastPlanetPayout(algoAddress)
+        timestamp = datetime.fromtimestamp(round_time, tz=timezone.utc).strftime("%B %d, %Y %H:%M:%S UTC")#datetime.utcfromtimestamp(round_time).strftime("%B %d, %Y %H:%M:%S UTC")
+        planet_str = str(amount) + " Planet"
+        if amount > 1:
+            planet_str = planet_str + "s"
+        message = planet_str + " paid out on " + timestamp
+    except:
+        message = "No Planet Payouts found for account " + algoAddress
+    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+    
 #Query  Algorand Addres (set by updateAddress) 
 #for Algorand ASA Balance denoted by
 #passed in Asset ID (context.args[0]) 
@@ -253,7 +339,7 @@ def monitorAsset(dispatcher):
                                dispatcher.bot.send_message(chat_id=userId, text=message)
                            user_data['startTime'] = datetime.utcnow()
                except Exception as exception:
-                   print(exception)  
+                   print("Monitor Exception: " + exception)  
            sleep(1)
 
 def main():
@@ -292,6 +378,8 @@ def main():
    planet_monitor_disable_handler = CommandHandler('stopPlanetMonitor', stopMonitor)
    planet_monitor_status_handler = CommandHandler('getMonitorStatus', getMonitorStatus)
    asset_balance_handler = CommandHandler('getAssetBalance', getAssetBalanceCmd)
+   planet_payout_handler = CommandHandler('getLastPlanetPayout', getLastPlanetPayoutCmd)
+   average_planet_payout_handler = CommandHandler('getAveragePlanetPayout', getAveragePlanetPayoutCmd)
    unknown_handler = MessageHandler(Filters.command, unknown)
 
 
@@ -303,6 +391,8 @@ def main():
    dispatcher.add_handler(planet_monitor_handler)
    dispatcher.add_handler(planet_monitor_disable_handler)
    dispatcher.add_handler(planet_monitor_status_handler)
+   dispatcher.add_handler(planet_payout_handler)
+   dispatcher.add_handler(average_planet_payout_handler)
    dispatcher.add_handler(unknown_handler)
 
    t = threading.Thread(target=monitorAsset, args=([dispatcher]))
