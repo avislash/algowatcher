@@ -49,15 +49,15 @@ def start(update, context):
 #and also initializes the user_data dictionary for the user
 def updateAddress(update, context):
     global localContext
-    algoAddress = ' '
-    if len(context.args) > 0:
-        algoAddress = context.args[0]
-        context.user_data[update.effective_chat.id] = {'address' : algoAddress, 'monitor' : False, 'asset': 0, 'startTime': datetime.utcnow(), 'txnsPerInterval': 1, 'interval': 120,}
+    algoAddress = ''
+    if len(context.args) > 0: 
+            algoAddress = context.args[0]
+            context.user_data[update.effective_chat.id] = {'address' : algoAddress, 'monitor' : False, 'asset': 0, 'startTime': datetime.utcnow(), 'txnsPerInterval': 1, 'interval': 120,}
     else:
         context.user_data[update.effective_chat.id] = {}
 
+    message = "Address updated to " + algoAddress 
     localContext[update.effective_chat.id] = context.user_data[update.effective_chat.id]
-    message = "Address updated to " + algoAddress
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 #Method to query amount of ASA Txns an account has had since
@@ -140,7 +140,7 @@ def getAlgoBalance(update, context):
         algoAddress = context.user_data[update.effective_chat.id].get('address')
         account_info = algoClient.account_info(algoAddress)
         balance = account_info.get('amount')*1e-6
-        message = "Account Balance: {} Algo".format(balance)
+        message = "Account Balance: " + format(balance, '.6f') + " Algo"
     except:
         message = "No valid address found. Please store address with /address first"
 
@@ -154,7 +154,7 @@ def getPlanetBalance(update, context):
     try:
         algoAddress = context.user_data[update.effective_chat.id].get('address')
         balance = getAssetBalance(algoAddress, planetAssetId)*1e-6
-        message = "Account Balance: {} Planets".format(balance)
+        message = "Account Balance: " + format(balance, '.3f') + " Planets"
     except:
         message = "No valid address found. Please store address with /address first"
 
@@ -210,7 +210,7 @@ def getAveragePlanetPayoutCmd(update, context):
 
     try:
         amount = getAveragePlanetPayout(algoAddress)
-        planet_str = format(amount, '.4f') + " Planet"
+        planet_str = format(amount, '.3f') + " Planet"
  
         if 1 != amount:
             planet_str = planet_str + "s"
@@ -234,7 +234,7 @@ def getLastPlanetPayoutCmd(update, context):
     try:
         [amount, round_time] = getLastPlanetPayout(algoAddress)
         timestamp = datetime.fromtimestamp(round_time, tz=timezone.utc).strftime("%B %d, %Y %H:%M:%S UTC")#datetime.utcfromtimestamp(round_time).strftime("%B %d, %Y %H:%M:%S UTC")
-        planet_str = str(amount) + " Planet"
+        planet_str = format(amount, '.3f') + " Planet"
         if amount > 1:
             planet_str = planet_str + "s"
         message = planet_str + " paid out on " + timestamp
@@ -328,15 +328,24 @@ def monitorAsset(dispatcher):
                    if True == user_data.get('monitor'):
                        time_elapsed = (datetime.utcnow() - user_data.get('startTime')).total_seconds()
                        if time_elapsed >= user_data.get('interval'):
-                           numTxns = len(getPlanetTxns(user_data.get('address'), user_data.get('startTime')))
-                           if numTxns < user_data.get('txnsPerInterval'):
-                               message = "No New Planet Transactions Detected"
+                           try:
+                               numTxns = len(getPlanetTxns(user_data.get('address'), user_data.get('startTime')))
+                               if numTxns < user_data.get('txnsPerInterval'):
+                                   message = "No New Planet Transactions Detected"
 
-                               if user_data.get('txnsPerInterval') > 1 :
-                                   message = message + ": Expected " + str(user_data.get('txnsPerInterval')) + " Got " + str(numTxns) 
-                               
-                               message =  message + ". Please make sure your Sensor and App are still active." 
-                               dispatcher.bot.send_message(chat_id=userId, text=message)
+                                   if user_data.get('txnsPerInterval') > 1 :
+                                       message = message + ": Expected " + str(user_data.get('txnsPerInterval')) + " Got " + str(numTxns) 
+                                   
+                                   message =  message + ". Please make sure your Sensor and App are still active." 
+                                   dispatcher.bot.send_message(chat_id=userId, text=message)
+                           except Exception as exception:
+                                try:
+                                    print(str(exception).encode('utf-8'))
+                                    print("Unable to print exception..")
+                                    message = "Encountered Error Polling data for Account: " + user_data.get('address') + " Contact t.me/algowatchers"
+                                    dispatcher.bot.send_message(chat_id=userId, text=message)
+                                except Exception as exception:
+                                    print(str(exception).encode('utf-8'))
                            user_data['startTime'] = datetime.utcnow()
                except Exception as exception:
                    print("Monitor Exception: " + exception)  
