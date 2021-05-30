@@ -1,5 +1,14 @@
 import math
 
+def parseArgs(args):
+   arguments={}
+   for arg in args:
+       try:
+           arguments[arg.split("=")[0].lstrip(' ').lower()] = arg.split("=")[1].lstrip(' ')
+       except Exception:
+           pass
+   return arguments
+
 def roundFloat(val):
     decimal = val - int(val)
     if 0.5 <= decimal:

@@ -24,14 +24,6 @@ algoClient = {}
 planetAssetId = 27165954 #Asset ID for Planet ASA
 planetAssetScaleFactor = 1e-6
 
-def parseArgs(args):
-   params={}
-   for arg in args:
-       try:
-           params[arg.split("=")[0].lstrip(' ').lower()] = arg.split("=")[1].lstrip(' ')
-       except Exception:
-           pass
-   return params
 
 #Displays the start menu whenever user types /start in Telegram chat
 #This contains all commands available to user along with brief description
@@ -90,7 +82,7 @@ def listAccts(update, context):
 def deleteAcct(update, context):
    chatId = update.effective_chat.id
    numAccounts = AlgoWatcherAcct.objects(chatId=chatId).count()
-   args =  parseArgs(context.args)
+   args =  util.parseArgs(context.args)
 
    if numAccounts > 0:
        accounts = AlgoWatcherAcct.objects(chatId=chatId)
@@ -232,7 +224,7 @@ def startMonitor(update, context):
    chatId = update.effective_chat.id
    numAccounts = AlgoWatcherAcct.objects(chatId=chatId).count()
    accounts = AlgoWatcherAcct.objects(chatId=chatId)
-   args = parseArgs(context.args)
+   args = util.parseArgs(context.args)
 
    if 0 == numAccounts:
        context.bot.send_message(chat_id=chatId, text="No accounts registered. Use /addAcct to register an account")
@@ -271,7 +263,7 @@ def stopMonitor(update, context):
    chatId = update.effective_chat.id
    numAccounts = AlgoWatcherAcct.objects(chatId=chatId).count()
    accounts = AlgoWatcherAcct.objects(chatId=chatId)
-   args = parseArgs(context.args)
+   args = util.parseArgs(context.args)
 
    if 0 == numAccounts:
        context.bot.send_message(chat_id=chatId, text="No accounts registered. Use /addAcct to register an account")
@@ -337,7 +329,7 @@ def getAssetBalanceCmd(update, context):
    chatId = update.effective_chat.id
    numAccounts = AlgoWatcherAcct.objects(chatId=chatId).count()
    accounts = AlgoWatcherAcct.objects(chatId=chatId)
-   args = parseArgs(context.args)
+   args = util.parseArgs(context.args)
 
    if not 'assetid' in args:
        context.bot.send_message(chat_id=update.effective_chat.id, text="No ASA Asset Id specified")
