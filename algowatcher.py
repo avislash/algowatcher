@@ -23,12 +23,13 @@ from db.AlgoWatcherAcct import AlgoWatcherAcct
 algoClient = {}
 planetAssetId = 27165954 #Asset ID for Planet ASA
 planetAssetScaleFactor = 1e-6
-
+version="2.0.0"
 
 #Displays the start menu whenever user types /start in Telegram chat
 #This contains all commands available to user along with brief description
 def start(update, context):
-    greeting_str = "Hello. You can type the following commands:\n\t\n"
+    global version
+    greeting_str = "Hello and welcome to AlgoWatcher v{}. You can type the following commands:\n\t\n".format(version)
     start_str = " /start  - Display this menu\n\t"
     address_str = "/addAcct <new address value> - Register Algorand Account for bot to monitor\n\t"
     listAcct_str = "/listAccts - List all registered accounts and monitor status\n"
@@ -424,11 +425,11 @@ def main():
 
    algoNodeAddress = botProperties.get('algoNodeAddress') #algoNodeAddress = "http://NODE-URL:NODE-PORT"
    algoNodeToken = botProperties.get('algoNodeToken') #algoNodeToken = "Algorand Node API Token"
-   #botToken = botProperties.get('botToken') #botToken = 'Telegram API Token'
-   botToken = botProperties.get('testBotToken') #botToken = 'Telegram API Token'
+   botToken = botProperties.get('botToken') #botToken = 'Telegram API Token'
+   #botToken = botProperties.get('testBotToken') #botToken = 'Telegram API Token'
 
-   #connect(db=botProperties['main_db'], host=botProperties['db_host'], port=botProperties['db_port'])
-   connect(db=botProperties['test_db'], host=botProperties['db_host'], port=botProperties['db_port'])
+   connect(db=botProperties['main_db'], host=botProperties['db_host'], port=botProperties['db_port'])
+   #connect(db=botProperties['test_db'], host=botProperties['db_host'], port=botProperties['db_port'])
 
    algoClient = algod.AlgodClient(algoNodeToken, algoNodeAddress)
    updater = Updater(token=botToken, use_context=True)
