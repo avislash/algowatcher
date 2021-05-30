@@ -20,12 +20,11 @@ def getTxnsPerInterval(args):
 def getInterval(args):
    MINIMUM_CHECK_INTERVAL = 5 #seconds. Monitor at each new Algorand Block
    interval = MINIMUM_CHECK_INTERVAL #default monitor rate is 30 seconds
-
    if len(args) > 0:
-       if args[0].find('s') > 0: 
-           interval = roundFloat(float(args[0].split('s')[0]))
-       elif args[0].find('m') > 0:
-           interval = args[0].split('m')[0]
+       if args.find('s') > 0: 
+           interval = roundFloat(float(args.split('s')[0]))
+       elif args.find('m') > 0:
+           interval = args.split('m')[0]
            interval = int(float(interval)*60)
 
    interval = interval if MINIMUM_CHECK_INTERVAL < interval else MINIMUM_CHECK_INTERVAL
