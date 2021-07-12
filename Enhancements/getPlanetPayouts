@@ -1,0 +1,47 @@
+This is a request for the owner of AlgoWatcher to incorporate a new function, 'getPlanetPayouts', 
+to better facilitate the querying of an user-specified time period of $Planets payouts for a monitored account 
+on the Algorand Blockchain.
+
+BACKGROUND:
+Currently, the 'getLastPlanetPayout' is used to query the amount of $PLANETS when it was last distributed.
+Leveraging off this function, it would be very beneficial to also display $PLANETS payout a week,
+a month, or any user specified-range based on account index.
+
+
+DETAILS:
+
+<> If the user executes "/getPlanetPayouts accIndex=1", the returned query would be the query results
+depicting all the $PLANETS payout for Account 1 since it was first onboarded until now, assuming the
+state of Account 1 is being monitored.
+
+Example - assuming the user added Type 4 sensor on July 08, 2021 and has enabled monitoring:
+23.008 PLANET paid out on July 11, 2021 12:12:01 UTC to <Wallet Address of Account 1> with note:
+b'{"date": "2021-07-10", "streams": 719, "deviceId": "PW:AB_xxxxxxx", "type": "4", "qualifying": true, "localScore": 112, "globalScore": 112}'
+ 
+20.008 PLANET paid out on July 10, 2021 12:12:01 UTC to <Wallet Address of Account 1> with note:
+b'{"date": "2021-10-10", "streams": 719, "deviceId": "PW:AB_xxxxxxx", "type": "4", "qualifying": true, "localScore": 112, "globalScore": 112}'
+ 
+23.04 PLANET paid out on July 9, 2021 12:12:01 UTC to <Wallet Address of Account 1> with note:
+b'{"date": "2021-07-9", "streams": 720, "deviceId": "PW:AB_xxxxxxx", "type": "4", "qualifying": true, "localScore": 112, "globalScore": 112}'
+
+13.04 PLANET paid out on July 8, 2021 12:12:01 UTC to <Wallet Address of Account 1> with note:
+b'{"date": "2021-07-8", "streams": 300, "deviceId": "PW:AB_xxxxxxx", "type": "4", "qualifying": true, "localScore": 112, "globalScore": 112}'
+
+
+
+
+<> If the user executes "/getPlanetPayouts accIndex=1 prevDays=2", the returned query would be the query results
+depicting a list of $PLANETS payout for Account 1 two days ago, assuming the
+state of Account 1 is being monitored.
+
+23.008 PLANET paid out on July 11, 2021 12:12:01 UTC to <Wallet Address of Account 1> with note:
+b'{"date": "2021-07-10", "streams": 719, "deviceId": "PW:AB_xxxxxxx", "type": "4", "qualifying": true, "localScore": 112, "globalScore": 112}'
+ 
+20.008 PLANET paid out on July 10, 2021 12:12:01 UTC to <Wallet Address of Account 1> with note:
+b'{"date": "2021-10-10", "streams": 719, "deviceId": "PW:AB_xxxxxxx", "type": "4", "qualifying": true, "localScore": 112, "globalScore": 112}'
+
+
+
+<> If the user executes "/getPlanetPayouts", the returned query would be the DEFAULT query results
+depicting all the $PLANETS payout for ALL monitored accounts since it was first onboarded until now.
+
