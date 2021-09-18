@@ -408,12 +408,12 @@ def monitorAsset(dispatcher):
                        message =  message + ". Please make sure your Sensor and App are still active." 
                        dispatcher.bot.send_message(chat_id=account['chatId'], text=message)
                except Exception as e:
-                   dispatcher.bot.send_message(chat_id=account['chatId'], text="Unable to get transaction status for {}".format(account['address']))
                    try:
+                       dispatcher.bot.send_message(chat_id=account['chatId'], text="Unable to get transaction status for {}".format(account['address']))
                        print("Unable to get transaction status for User {} (id #{}) address #{}".format(dispatcher.bot.get_chat(account['chatId']).username, account['chatId'], account['address']))
                        print("Exception: {}".format(e))
-                   except Exception:
-                       pass
+                   except Exception as e:
+                       print("Alerting user {} of failure failed: Reason {}".format(account['chatId'],e))
 
        sleep(1)
 
