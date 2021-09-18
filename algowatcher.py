@@ -5,6 +5,7 @@ import threading
 import requests
 import json
 import math
+import base64
 
 from telegram.ext import Updater, CommandHandler, PicklePersistence
 from telegram.ext import MessageHandler, Filters
@@ -12,53 +13,94 @@ from algosdk.v2client import algod
 from datetime import datetime, timezone, timedelta
 from time import sleep
 from util import util
+from mongoengine import connect
+from db.AlgoWatcherAcct import AlgoWatcherAcct 
+
 
 #Global variables. These objects need to be used by the command call back functions  below
 #But there's no way of initializing them in main() and passing them in when handling
 #the commands
 algoClient = {}
-localContext = {}
 planetAssetId = 27165954 #Asset ID for Planet ASA
 planetAssetScaleFactor = 1e-6
+version="2.0.0"
+
 #Displays the start menu whenever user types /start in Telegram chat
 #This contains all commands available to user along with brief description
 def start(update, context):
-    greeting_str = "Hello. You can type the following commands:\n\t\n"
+    global version
+    greeting_str = "Hello and welcome to AlgoWatcher v{}. You can type the following commands:\n\t\n".format(version)
     start_str = " /start  - Display this menu\n\t"
-    address_str = "/address <new address value> - Algorand Address for bot to monitor\n\t"
-    getAlgoBal_str = "/getAlgoBalance - Get Current Balance (Note: Address must be set using /address first)\n\t"
-    getPlanetBal_str = "/getPlanetBalance - Get Current  Planet Balance (Note: Address must be set using /address first)\n\t"
-    getAssetBal_str = "/getAssetBalance <AssetId> - Get Current Asset Balance\n\t" 
+    address_str = "/addAcct <new address value> - Register Algorand Account for bot to monitor\n\t"
+    listAcct_str = "/listAccts - List all registered accounts and monitor status\n"
+    getAlgoBal_str = "/getAlgoBalance - Get Current ALGO Balance for all registred Algorand Accounts\n\t"
+    getPlanetBal_str = "/getPlanetBalance - Get Current PLANET Balance for all registered Algorand Accounts\n\t"
+    getAssetBal_str = "/getAssetBalance <acctIndex=index> <assetId=id> - Get Current Asset Balance for specified asset and account\n\t" 
 
-    startMonitor_str = "\n/startPlanetMonitor <optional frequency> <optional Tx/Period> - Monitor Address to verify the specified number of Planet Transactions have occured. This command will alert the user if 1 or more Planet Transactions are not detected at the specified <frequency>. The default frequency is 2m but can be changed by specifing in seconds or minutes. The default transactions per monitor period is set to 1. No supplied frequency will use the last set values. See example usage below. \n\t Ex: /startPlanetMonitor 45s - Monitor every 45s. \n       /startPlanetMonitor 14.5m 2 - Monitor for 2 Planet Txns every 14.5 minutes. \n      /startPlanetMonitor - Start Monitor at last stored frequency and Tx/freq values\n\n\t"
+    startMonitor_str = "\n/startPlanetMonitor acctIndex=index interval=period txnsPerInterval=num - Monitor Registered Account at index to verify the specified number of Planet Transactions have occured. This command will alert the user if 1 or more Planet Transactions are not detected at the specified interval. The default frequency is 2.5m but can be changed by specifing in seconds or minutes. The default transactions per monitor period is set to 1. No supplied interval or txnsPerInterval will use last set values. See example usage below. \n\t Ex: Only 1 account: /startPlanetMonitor interval=45s - Monitor every 45s. \n       /startPlanetMonitor acctIndex=2 interval=14.5m txnsPerInterval=2 - Monitor for 2 Planet Txns every 14.5 minutes. \n      /startPlanetMonitor acctIndex=0 - Start Monitor at last stored frequency and Tx/freq values\n\n\t"
 
-    stopMonitor_str = "/stopPlanetMonitor - Disable Planet Monitoring\n\t"
-    monitorStatus_str = "/getMonitorStatus - Check if Planet Monitoring is enabled/disabled\n\t\n"
-    planetpayout_str = "/getLastPlanetPayout - Query Amount and Timestamp of the last Planet Payout\n\t\n"
-    average_payout_str = "/getAveragePlanetPayout - Get Running 7 Day Average Planet Payout\n\t\n"
-
-    coffe_str = "Like the bot and want to buy the developer coffe? Send an algo to ONPJRXNOOAIZVJ3VPSZKFGBMSYQRACNZUMW5P6FNQTKUZ3BALYCDBUMNAM\n\n"
+    stopMonitor_str = "/stopPlanetMonitor acctIndex=index - Disable Planet Monitoring at <index>.\n\t\n"
+    planetpayout_str = "/getLastPlanetPayout - Query Amount and Timestamp of the last Planet Payout for all registered accounts\n\t\n"
+    average_payout_str = "/getAveragePlanetPayout - Get Running 7 Day Average Planet Payout for all registered accounts\n\t\n"
+    deleteAcct_str = "/deleteAcct acctIndex=index - Delete/unregister the account at index from the bot's database\n"
+    note_str = "NOTE: Account Index for all commands only needs to be specified if more than 1 Algorand Account is registered\n\n"
+    coffe_str = "Like the bot and want to buy the developer coffe? Send ALGO to ONPJRXNOOAIZVJ3VPSZKFGBMSYQRACNZUMW5P6FNQTKUZ3BALYCDBUMNAM\n\n"
     support_str = "For Questions, Suggestions, and Feedback join the AlgoWatchers Telegram Group (t.me/algowatchers).\n" 
 
     final_str = coffe_str + support_str
 
-    message = greeting_str + start_str + address_str + getAlgoBal_str + getAssetBal_str + getPlanetBal_str + startMonitor_str + stopMonitor_str + monitorStatus_str + planetpayout_str + average_payout_str + final_str
+    message = greeting_str + start_str + address_str + listAcct_str + getAlgoBal_str + getAssetBal_str + getPlanetBal_str + startMonitor_str + stopMonitor_str + planetpayout_str + average_payout_str + deleteAcct_str + note_str+ final_str
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 #Sets the Algo Public Address to monitor/query balances for
 #and also initializes the user_data dictionary for the user
-def updateAddress(update, context):
-    global localContext
-    algoAddress = ''
-    if len(context.args) > 0: 
-            algoAddress = context.args[0]
-            context.user_data[update.effective_chat.id] = {'address' : algoAddress, 'monitor' : False, 'asset': 0, 'startTime': datetime.utcnow(), 'txnsPerInterval': 1, 'interval': 120,}
-    else:
-        context.user_data[update.effective_chat.id] = {}
+def addAcct(update, context):
+   algoAddress = ''
+   if len(context.args) > 0: 
+       chatId=update.effective_chat.id
+       account = AlgoWatcherAcct(chatId=chatId , address=context.args[0], monitorEnable=False, txnsPerInterval=1, interval= 150,  monitorTime=datetime.utcnow())
+       account.save()
+       message = "Registered Algorand account " + context.args[0] + " \n Total Accounts Registered: {}".format(AlgoWatcherAcct.objects(chatId=chatId).count())
+   else:
+       message = "No Address provided"
 
-    message = "Address updated to " + algoAddress 
-    localContext[update.effective_chat.id] = context.user_data[update.effective_chat.id]
-    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+   context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+def listAccts(update, context):
+   chatId = update.effective_chat.id
+   accounts = AlgoWatcherAcct.objects(chatId=chatId)
+   if len(accounts) > 0:
+       message = "Accounts:\n"
+       i = 0
+       for account in accounts:
+           message = message + "Acct {}: ".format(i) + account['address'] + " - txnsPerInterval: {}".format(account['txnsPerInterval']) + ", interval: {}".format(util.intervalToStr(account['interval'])) +", monitorEnabled: {}\n".format(account['monitorEnable'])
+           i+=1
+
+       context.bot.send_message(chat_id=chatId, text=message)
+   else:
+       context.bot.send_message(chat_id=chatId, text="No accounts registered. Use /addAcct to register an account")
+
+def deleteAcct(update, context):
+   chatId = update.effective_chat.id
+   numAccounts = AlgoWatcherAcct.objects(chatId=chatId).count()
+   args =  util.parseArgs(context.args)
+
+   if numAccounts > 0:
+       accounts = AlgoWatcherAcct.objects(chatId=chatId)
+       if 1 == numAccounts:
+           acctIndex = 0
+       elif 'acctindex' in args and int(args['acctindex']) >= 0  and int(args['acctindex']) < numAccounts:
+           acctIndex = int(args['acctindex'])
+       else:
+           context.bot.send_message(chat_id=chatId, text="Invalid account index provided. Pick valid index from list below: ")
+           listAccts(update, context)
+           return
+
+       accounts[acctIndex].delete()
+       context.bot.send_message(chat_id=chatId, text="Deleted Acct #{}".format(acctIndex))
+       listAccts(update, context)
+   else:
+       context.bot.send_message(chat_id=chatId, text="No accounts registered. Use /addAcct to register an account")
 
 #Method to query amount of ASA Txns an account has had since
 #a given time interval
@@ -113,9 +155,10 @@ def getLastPlanetPayout(address):
     txn_url = txn_base_url + txn_info + before_time + val
     acct_info = json.loads(requests.get(txn_url).text)
     last_txn = acct_info['transactions'][0]
+    note = last_txn['note']
     time = last_txn['round-time']
     amount = last_txn['asset-transfer-transaction']['amount'] * planetAssetScaleFactor
-    return [amount, time]
+    return [amount, time, note]
 
 #Helper function that gets the current number of ASA Tokens denoted by assetId
 #in located at the public Algorand Address (algoAddress)
@@ -134,176 +177,207 @@ def getAssetBalance(algoAddress, assetId):
 
 #Gets the current Amount of ALGO in 
 #in the wallet address that was set using /address (updateAddress)
+#Query all registered Algorand Address (set by addAcct)
+#for current ALGO Balance (Algorand ASA)
 def getAlgoBalance(update, context):
-    global algoClient
-    try:
-        algoAddress = context.user_data[update.effective_chat.id].get('address')
-        account_info = algoClient.account_info(algoAddress)
-        balance = account_info.get('amount')*1e-6
-        message = "Account Balance: " + format(balance, '.6f') + " Algo"
-    except:
-        message = "No valid address found. Please store address with /address first"
+   global algoClient
+   chatId = update.effective_chat.id
+   addresses = AlgoWatcherAcct.objects(chatId=chatId).distinct('address')
+   if len(addresses) > 0: 
+       message = ""
+       for algoAddress in addresses:
+           try:
+               account_info = algoClient.account_info(algoAddress)
+               balance = account_info.get('amount')*1e-6
+               message = message + "Account {} Balance: {} ALGO\n".format(algoAddress, format(balance, '.6f'))
+           except:
+               message = message + "Error getting balance for Account {}\n".format(algoAddress)
+   else:
+       message = "No accounts registered. Use /addAcct to register an account"
 
-    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+   context.bot.send_message(chat_id=chatId, text=message)
 
-#Query  Algorand Addres (set by updateAddress) 
+#Query all registered Algorand Address (set by addAcct)
 #for current Planet Balance (Algorand ASA)
 def getPlanetBalance(update, context):
-    global algoClient
-    global planetAssetId
-    try:
-        algoAddress = context.user_data[update.effective_chat.id].get('address')
-        balance = getAssetBalance(algoAddress, planetAssetId)*1e-6
-        message = "Account Balance: " + format(balance, '.3f') + " Planets"
-    except:
-        message = "No valid address found. Please store address with /address first"
+   global algoClient
+   global planetAssetId
+   chatId = update.effective_chat.id
+   addresses = AlgoWatcherAcct.objects(chatId=chatId).distinct('address')
+   if len(addresses) > 0: 
+       message = ""
+       for algoAddress in addresses:
+           try:
+               balance = getAssetBalance(algoAddress, planetAssetId)*1e-6
+               message = message + "Account {} Balance: {} PLANET\n".format(algoAddress, format(balance, '.3f'))
+           except:
+               message = message + "Error getting balance for Account {}\n".format(algoAddress)
+   else:
+       message = "No accounts registered. Use /addAcct to register an account"
 
-    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+   context.bot.send_message(chat_id=chatId, text=message)
 
 
 #Enable Planet monitoring for Telegram user
 #If no arguments are specified then the account will be
 #monitor at the last set interval (default 30 seconds)
 def startMonitor(update, context):
-   global localContext
-   if context.user_data and 'monitor' in context.user_data[update.effective_chat.id]:
-       interval = context.user_data[update.effective_chat.id].get('interval')
-       txnsPerInterval = context.user_data[update.effective_chat.id].get('txnsPerInterval')
-       if len(context.args) > 0 :
-           interval = util.getInterval(context.args)
-           txnsPerInterval = util.getTxnsPerInterval(context.args)
-           context.user_data[update.effective_chat.id]['interval'] = interval
-           context.user_data[update.effective_chat.id]['txnsPerInterval'] = txnsPerInterval
+   chatId = update.effective_chat.id
+   numAccounts = AlgoWatcherAcct.objects(chatId=chatId).count()
+   accounts = AlgoWatcherAcct.objects(chatId=chatId)
+   args = util.parseArgs(context.args)
 
-       context.user_data[update.effective_chat.id]['startTime'] = datetime.utcnow()
-       context.user_data[update.effective_chat.id]['monitor'] = True
-       localContext[update.effective_chat.id] = context.user_data[update.effective_chat.id]
+   if 0 == numAccounts:
+       context.bot.send_message(chat_id=chatId, text="No accounts registered. Use /addAcct to register an account")
+       return
 
-       txStr = "for " + str(txnsPerInterval) + " transaction"
-
-       if txnsPerInterval > 1:
-           txStr = txStr+"s"
-
-       message = "Monitor Enabled. Monitoring " + txStr + " every " + util.intervalToStr(interval)
-       context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+   if 1 == numAccounts:
+       acctIndex = 0
+   elif not 'acctindex' in args or int(args['acctindex']) < 0 or int(args['acctindex']) >= numAccounts:
+       context.bot.send_message(chat_id=chatId, text="Invalid account index provided. Pick valid index from list below: ")
+       listAccts(update, context)
+       return
    else:
-       context.bot.send_message(chat_id=update.effective_chat.id, text="Unable to start monitor. Make sure you set an address with /address first")
+       acctIndex = int(args['acctindex'])
+       
+   if 'interval' in args:
+       interval = util.getInterval(args['interval'])
+       accounts[acctIndex].update(interval=interval)
+   
+   if 'txnsperinterval' in args:
+       if int(args['txnsperinterval']) >= 0:
+           accounts[acctIndex].update(txnsPerInterval=int(args['txnsperinterval']))
+           
+
+   accounts[acctIndex].update(monitorEnable=True)
+   accounts[acctIndex].update(monitorTime=datetime.utcnow())
+
+   txStr = accounts[acctIndex]['address'] + " for " + str(accounts[acctIndex]['txnsPerInterval'])
+
+   txStr = txStr + " " +  ("transactions" if accounts[acctIndex]['txnsPerInterval'] != 1 else "transaction")
+
+   message = "Monitor Enabled. Monitoring " + txStr + " every " + util.intervalToStr(accounts[acctIndex]['interval'])
+   context.bot.send_message(chat_id=update.effective_chat.id, text=message)
  
 #Disable Planet Monitoring for Telegram user
 def stopMonitor(update, context):
-    global localContext
-    try:
-        context.user_data[update.effective_chat.id]['monitor'] = False
-        localContext[update.efefetive_chat.id] = context.user_data[update.effective_chat.id]
-    except:
-        pass
+   chatId = update.effective_chat.id
+   numAccounts = AlgoWatcherAcct.objects(chatId=chatId).count()
+   accounts = AlgoWatcherAcct.objects(chatId=chatId)
+   args = util.parseArgs(context.args)
 
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Monitor Stopped")
+   if 0 == numAccounts:
+       context.bot.send_message(chat_id=chatId, text="No accounts registered. Use /addAcct to register an account")
+       return
+
+   if 1 == numAccounts:
+       acctIndex = 0
+   elif not 'acctindex' in args or int(args['acctindex']) < 0 or int(args['acctindex']) >= numAccounts:
+       context.bot.send_message(chat_id=chatId, text="Invalid account index provided. Pick valid index from list below: ")
+       listAccts(update, context)
+       return
+   else:
+       acctIndex = int(args['acctindex'])
+   
+   accounts[acctIndex].update(monitorEnable=False)
+
+   context.bot.send_message(chat_id=update.effective_chat.id, text="Monitor disabled for " + accounts[acctIndex]['address'])
 
 def getAveragePlanetPayoutCmd(update, context):
-    algoAddress = context.user_data[update.effective_chat.id].get('address')
+   chatId = update.effective_chat.id
+   addresses = AlgoWatcherAcct.objects(chatId=chatId).distinct('address')
 
-    if not algoAddress: 
-        message = "No Address set. Set address using /address"
-        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-        return
+   if len(addresses) > 0:
+       message = ""
+       for algoAddress in addresses:
+           try:
+               amount = getAveragePlanetPayout(algoAddress)
+               message = message + "{}\n{} PLANET paid out on average over the last 7 days\n\n".format(algoAddress, amount) 
+           except:
+               message = message + "No Planet Payouts found for {}\n\n".format(algoAddress)
+   else:
+       message = "No accounts registered. Use /addAcct to register an account"
 
-    try:
-        amount = getAveragePlanetPayout(algoAddress)
-        planet_str = format(amount, '.3f') + " Planet"
- 
-        if 1 != amount:
-            planet_str = planet_str + "s"
-
-        message = planet_str + " paid out on average over the last 7 days"
-    except:
-        message = "No Planet Payouts found for account " + algoAddress
-
-    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+   context.bot.send_message(chat_id=chatId, text=message)
 
 #Callback function for reporting the last 
 #recorded Planet payout to the user
 def getLastPlanetPayoutCmd(update, context):
+   chatId = update.effective_chat.id
+   addresses = AlgoWatcherAcct.objects(chatId=chatId).distinct('address')
 
-    algoAddress = context.user_data[update.effective_chat.id].get('address')
-    if not algoAddress: 
-        message = "No Address set. Set address using /address"
-        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-        return
+   if len(addresses) > 0:
+       message = ""
+       for algoAddress in addresses:
+           try:
+               [amount, round_time, note] = getLastPlanetPayout(algoAddress)
+               timestamp = datetime.fromtimestamp(round_time, tz=timezone.utc).strftime("%B %d, %Y %H:%M:%S UTC")#datetime.utcfromtimestamp(round_time).strftime("%B %d, %Y %H:%M:%S UTC")
+               planet_str = format(amount, '.3f') + " PLANET"
+               message = message + "{} paid out on {} to {} with note:\n {}\n\n".format(planet_str, timestamp, algoAddress, base64.b64decode(note)) 
+           except Exception as e:
+               message = message + "No Planet Payouts found for account {}\n\n".format(algoAddress) 
+               print(e)
+
+   else:
+        message = "No accounts registered. Use /addAcct to register an account"
    
-    try:
-        [amount, round_time] = getLastPlanetPayout(algoAddress)
-        timestamp = datetime.fromtimestamp(round_time, tz=timezone.utc).strftime("%B %d, %Y %H:%M:%S UTC")#datetime.utcfromtimestamp(round_time).strftime("%B %d, %Y %H:%M:%S UTC")
-        planet_str = format(amount, '.3f') + " Planet"
-        if amount > 1:
-            planet_str = planet_str + "s"
-        message = planet_str + " paid out on " + timestamp
-    except:
-        message = "No Planet Payouts found for account " + algoAddress
-    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+   context.bot.send_message(chat_id=update.effective_chat.id, text=message)
     
 #Query  Algorand Addres (set by updateAddress) 
 #for Algorand ASA Balance denoted by
 #passed in Asset ID (context.args[0]) 
 def getAssetBalanceCmd(update, context):
-   try:
-       assetId = context.args[0]
-   except:
-       context.bot.send_message(chat_id=update.effective_chat.id, text="No Asset ID Provided")
+   chatId = update.effective_chat.id
+   numAccounts = AlgoWatcherAcct.objects(chatId=chatId).count()
+   accounts = AlgoWatcherAcct.objects(chatId=chatId)
+   args = util.parseArgs(context.args)
+
+   if not 'assetid' in args:
+       context.bot.send_message(chat_id=update.effective_chat.id, text="No ASA Asset Id specified")
        return
+
+   if 0 == numAccounts:
+       context.bot.send_message(chat_id=update.effective_chat.id, text="No accounts registered. Use /addAcct to register an account")
+       return
+
+   if 1 == numAccounts:
+       acctIndex = 0
+   elif numAccounts > 1 and (not 'acctindex' in args or int(args['acctindex']) < 0 or int(args['acctindex']) >= numAccounts):
+       context.bot.send_message(chat_id=chatId, text="Invalid account index provided. Pick valid index from list below: ")
+       listAccts(update, context)
+   else:
+       acctIndex = int(args['acctindex'])
 
    #The Indexer must be used to get ASA Meta data such as unit-name and
    #this requires an archival node. Instead of running my own archical ndoe
    #I instead grab this information using the AlgoExploer API
    algoExplorerAssetUrl = "https://api.algoexplorer.io/idx2/v2/assets/"
-   algoExplorerAssetUrl= algoExplorerAssetUrl + str(assetId)
+   algoExplorerAssetUrl= algoExplorerAssetUrl + str(args['assetid'])
    
    asset_info = json.loads(requests.get(algoExplorerAssetUrl).text)
 
    #Make sure ASA ID provided is valid
    if "asset" in asset_info:
        try:
-           algoAddress = context.user_data[update.effective_chat.id].get('address')
-       except:
-           message = "No Address set. Set address using /address"
-           context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-           return
-
-       try:
-           balance = getAssetBalance(algoAddress, context.args[0])
+           balance = getAssetBalance(accounts[acctIndex]['address'], args['assetid'])
 
            scaleFactor = 10 ** (-1*asset_info["asset"]["params"]["decimals"])
            balance = balance*scaleFactor
            units = asset_info["asset"]["params"]["unit-name"]
-           message = "Account Balance for Asset ID " + str(context.args[0]) + ": {}".format(balance) + " " + units
+           message = accounts[acctIndex]['address'] + "\nAccount Balance for Asset ID " + str(args['assetid']) + ": {}".format(balance) + " " + units
        except:
-           message = "No Balance found for Asset ID " + str(context.args[0])
+           message = "No Balance found for Asset ID {} for Account{}\n ".format(args['assetid'], accounts[acctIndex]['address'])
    else:
-       message = "Invalid Asset ID " + str(assetId)
+       message = "Invalid Asset ID {}".format(args['assetid'])
 
    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
-#Reports current monitor status (Enabled/Disabled) 
-#and monitor interval to Telegram user
-def getMonitorStatus(update, context):
-   try:
-       monitorStatus = context.user_data[update.effective_chat.id].get('monitor')
-       if monitorStatus:
-           interval = context.user_data[update.effective_chat.id].get('interval')
-           txnsPerInterval = context.user_data[update.effective_chat.id].get('txnsPerInterval')
-
-           txnStr = str(txnsPerInterval) + " transaction"
-
-           if txnsPerInterval > 1:
-               txnStr = txnStr + "s"
-
-           message = "Monitor Enabled. Monitoring for " + txnStr + " every " +  util.intervalToStr(interval)
-       else:
-           message = "Monitor Disabled"
-   except:
-       message = "No Monitor Status. Initialize account using /address first"
-
-   context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+def getStats(update, context):
+    numUsers = AlgoWatcherAcct.objects().distinct('chatId')
+    numAddresses = AlgoWatcherAcct.objects().count()
+    message = "Number of registered users {} watching {} addresses".format(len(numUsers), numAddresses)
+    context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+    
 
 #Used when an unregistered command comes in
 def unknown(update, context):
@@ -315,41 +389,33 @@ def unknown(update, context):
 #Planets came in over the set Monitor Interval
 #TODO: Update to be able to monitor any existing ASA
 def monitorAsset(dispatcher):
-   global algoClient
-   global planetAssetId
-   global localContext
 
    while True:
-       if localContext:
-           #print(localContext)
-           for userId in localContext:
-               user_data = localContext[userId]
+       #Get all monitor enabled accounts sorted by earliest time
+       accounts = AlgoWatcherAcct.objects(monitorEnable=True).order_by('monitorTime')
+       for account in accounts:
+           elapsedTime = (datetime.utcnow() - account['monitorTime']).total_seconds()
+           if elapsedTime >= account['interval']:
                try:
-                   if True == user_data.get('monitor'):
-                       time_elapsed = (datetime.utcnow() - user_data.get('startTime')).total_seconds()
-                       if time_elapsed >= user_data.get('interval'):
-                           try:
-                               numTxns = len(getPlanetTxns(user_data.get('address'), user_data.get('startTime')))
-                               if numTxns < user_data.get('txnsPerInterval'):
-                                   message = "No New Planet Transactions Detected"
+                   account.update(monitorTime=datetime.utcnow())
+                   numTxns = len(getPlanetTxns(account['address'], account['monitorTime']))
+                   if numTxns < account['txnsPerInterval']:
+                       message = "No New Planet Transactions Detected for " + account['address']
 
-                                   if user_data.get('txnsPerInterval') > 1 :
-                                       message = message + ": Expected " + str(user_data.get('txnsPerInterval')) + " Got " + str(numTxns) 
-                                   
-                                   message =  message + ". Please make sure your Sensor and App are still active." 
-                                   dispatcher.bot.send_message(chat_id=userId, text=message)
-                           except Exception as exception:
-                                try:
-                                    print(str(exception).encode('utf-8'))
-                                    print("Unable to print exception..")
-                                    message = "Encountered Error Polling data for Account: " + user_data.get('address') + " Contact t.me/algowatchers"
-                                    dispatcher.bot.send_message(chat_id=userId, text=message)
-                                except Exception as exception:
-                                    print(str(exception).encode('utf-8'))
-                           user_data['startTime'] = datetime.utcnow()
-               except Exception as exception:
-                   print("Monitor Exception: " + exception)  
-           sleep(1)
+                       if account['txnsPerInterval'] > 1 :
+                           message = message + ": Expected {} transactions | Got {} transaction{}".format(account['txnsPerInterval'], numTxns, "s" if numTxns != 1 else "")  
+                      
+                       message =  message + ". Please make sure your Sensor and App are still active." 
+                       dispatcher.bot.send_message(chat_id=account['chatId'], text=message)
+               except Exception as e:
+                   try:
+                       dispatcher.bot.send_message(chat_id=account['chatId'], text="Unable to get transaction status for {}".format(account['address']))
+                       print("Unable to get transaction status for User {} (id #{}) address #{}".format(dispatcher.bot.get_chat(account['chatId']).username, account['chatId'], account['address']))
+                       print("Exception: {}".format(e))
+                   except Exception as e:
+                       print("Alerting user {} of failure failed: Reason {}".format(account['chatId'],e))
+
+       sleep(1)
 
 def main():
    global algoClient
@@ -362,33 +428,27 @@ def main():
    botToken = botProperties.get('botToken') #botToken = 'Telegram API Token'
    #botToken = botProperties.get('testBotToken') #botToken = 'Telegram API Token'
 
+   connect(db=botProperties['main_db'], host=botProperties['db_host'], port=botProperties['db_port'])
+   #connect(db=botProperties['test_db'], host=botProperties['db_host'], port=botProperties['db_port'])
+
    algoClient = algod.AlgodClient(algoNodeToken, algoNodeAddress)
-   persist = PicklePersistence(filename='botContext.pickle')
-   updater = Updater(token=botToken, persistence=persist, use_context=True)
+   updater = Updater(token=botToken, use_context=True)
    dispatcher = updater.dispatcher
 
    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-   try:
-       with open("botContext.pickle", "rb") as file:
-           botData = pickle.load(file)
-   except:
-       botData = []
-
-   if botData:
-       for userId in botData['user_data']:
-            localContext[userId] = botData['user_data'][userId]
-   
    start_handler = CommandHandler('start', start)
-   address_handler = CommandHandler('address', updateAddress)
+   address_handler = CommandHandler('addAcct', addAcct)
    algo_balance_handler = CommandHandler('getAlgoBalance', getAlgoBalance)
    planet_balance_handler = CommandHandler('getPlanetBalance', getPlanetBalance)
    planet_monitor_handler = CommandHandler('startPlanetMonitor', startMonitor)
    planet_monitor_disable_handler = CommandHandler('stopPlanetMonitor', stopMonitor)
-   planet_monitor_status_handler = CommandHandler('getMonitorStatus', getMonitorStatus)
    asset_balance_handler = CommandHandler('getAssetBalance', getAssetBalanceCmd)
    planet_payout_handler = CommandHandler('getLastPlanetPayout', getLastPlanetPayoutCmd)
    average_planet_payout_handler = CommandHandler('getAveragePlanetPayout', getAveragePlanetPayoutCmd)
+   list_acct_handler = CommandHandler('listAccts', listAccts)
+   stats_handler = CommandHandler('stats', getStats)
+   delete_acct_handler = CommandHandler('deleteAcct', deleteAcct)
    unknown_handler = MessageHandler(Filters.command, unknown)
 
 
@@ -399,9 +459,11 @@ def main():
    dispatcher.add_handler(asset_balance_handler)
    dispatcher.add_handler(planet_monitor_handler)
    dispatcher.add_handler(planet_monitor_disable_handler)
-   dispatcher.add_handler(planet_monitor_status_handler)
    dispatcher.add_handler(planet_payout_handler)
    dispatcher.add_handler(average_planet_payout_handler)
+   dispatcher.add_handler(list_acct_handler)
+   dispatcher.add_handler(delete_acct_handler)
+   dispatcher.add_handler(stats_handler)
    dispatcher.add_handler(unknown_handler)
 
    t = threading.Thread(target=monitorAsset, args=([dispatcher]))
