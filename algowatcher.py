@@ -23,7 +23,7 @@ from db.AlgoWatcherAcct import AlgoWatcherAcct
 algoClient = {}
 planetAssetId = 27165954 #Asset ID for Planet ASA
 planetAssetScaleFactor = 1e-6
-version="2.1.0"
+version="2.2.0"
 
 
 #Helper for determining wheter to refer to account by alias or Algo Address
@@ -31,7 +31,10 @@ def getFormattedName(acct):
     name = acct['alias']
     address = acct['address']
 
-    return "*{}*".format(name) if len(name) > 0 else "address #{}".format(address)
+    formattedName =  "{}".format(name) if len(name) > 0 else "address {}".format(address)
+    
+    
+    return "[{}]({})".format(formattedName, "https://algoexplorer.io/address/{}".format(address))
 
 #Displays the start menu whenever user types /start in Telegram chat
 #This contains all commands available to user along with brief description
