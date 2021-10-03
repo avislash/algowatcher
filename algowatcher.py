@@ -70,9 +70,11 @@ def addAcct(update, context):
    algoAddress = ''
    if len(context.args) > 0: 
        chatId=update.effective_chat.id
-       account = AlgoWatcherAcct(chatId=chatId , address=context.args[0], monitorEnable=False, txnsPerInterval=1, interval= 150,  monitorTime=datetime.utcnow(), alias="")
+       symbolsToRemove="!@<>#."
+       algoAddress = context.args[0].lstrip(symbolsToRemove).rstrip(symbolsToRemove)
+       account = AlgoWatcherAcct(chatId=chatId, address=algoAddress, monitorEnable=False, txnsPerInterval=1, interval= 600,  monitorTime=datetime.utcnow(), alias="")
        account.save()
-       message = "Registered Algorand account " + context.args[0] + " \n Total Accounts Registered: {}".format(AlgoWatcherAcct.objects(chatId=chatId).count())
+       message = "Registered Algorand account " + algoAddress + " \n Total Accounts Registered: {}".format(AlgoWatcherAcct.objects(chatId=chatId).count())
    else:
        message = "No Address provided"
 
