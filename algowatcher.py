@@ -23,7 +23,15 @@ from db.AlgoWatcherAcct import AlgoWatcherAcct
 algoClient = {}
 planetAssetId = 27165954 #Asset ID for Planet ASA
 planetAssetScaleFactor = 1e-6
-version="2.0.0"
+version="2.1.0"
+
+
+#Helper for determining wheter to refer to account by alias or Algo Address
+def getFormattedName(acct):
+    name = acct['alias']
+    address = acct['address']
+
+    return "*{}*".format(name) if len(name) > 0 else "address #{}".format(address)
 
 #Displays the start menu whenever user types /start in Telegram chat
 #This contains all commands available to user along with brief description
@@ -32,6 +40,7 @@ def start(update, context):
     greeting_str = "Hello and welcome to AlgoWatcher v{}. You can type the following commands:\n\t\n".format(version)
     start_str = " /start  - Display this menu\n\t"
     address_str = "/addAcct <new address value> - Register Algorand Account for bot to monitor\n\t"
+    alias_str = "/alias <acctIndex=#> <name=Name> - Set a nickname/Alias for the bot to refer to when reporting\n\t"
     listAcct_str = "/listAccts - List all registered accounts and monitor status\n"
     getAlgoBal_str = "/getAlgoBalance - Get Current ALGO Balance for all registred Algorand Accounts\n\t"
     getPlanetBal_str = "/getPlanetBalance - Get Current PLANET Balance for all registered Algorand Accounts\n\t"
@@ -49,7 +58,7 @@ def start(update, context):
 
     final_str = coffe_str + support_str
 
-    message = greeting_str + start_str + address_str + listAcct_str + getAlgoBal_str + getAssetBal_str + getPlanetBal_str + startMonitor_str + stopMonitor_str + planetpayout_str + average_payout_str + deleteAcct_str + note_str+ final_str
+    message = greeting_str + start_str + address_str + alias_str + listAcct_str + getAlgoBal_str + getAssetBal_str + getPlanetBal_str + startMonitor_str + stopMonitor_str + planetpayout_str + average_payout_str + deleteAcct_str + note_str+ final_str
     context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 #Sets the Algo Public Address to monitor/query balances for
@@ -58,7 +67,7 @@ def addAcct(update, context):
    algoAddress = ''
    if len(context.args) > 0: 
        chatId=update.effective_chat.id
-       account = AlgoWatcherAcct(chatId=chatId , address=context.args[0], monitorEnable=False, txnsPerInterval=1, interval= 150,  monitorTime=datetime.utcnow())
+       account = AlgoWatcherAcct(chatId=chatId , address=context.args[0], monitorEnable=False, txnsPerInterval=1, interval= 150,  monitorTime=datetime.utcnow(), alias="")
        account.save()
        message = "Registered Algorand account " + context.args[0] + " \n Total Accounts Registered: {}".format(AlgoWatcherAcct.objects(chatId=chatId).count())
    else:
@@ -73,10 +82,15 @@ def listAccts(update, context):
        message = "Accounts:\n"
        i = 0
        for account in accounts:
-           message = message + "Acct {}: ".format(i) + account['address'] + " - txnsPerInterval: {}".format(account['txnsPerInterval']) + ", interval: {}".format(util.intervalToStr(account['interval'])) +", monitorEnabled: {}\n".format(account['monitorEnable'])
+           name = ''
+           if len(account['alias']) > 0:
+               name = " (*{}*)".format(account['alias'])
+
+           message = message + "Acct {}{}: ".format(i, name) + account['address'] + " - txnsPerInterval: {}".format(account['txnsPerInterval']) + ", interval: {}".format(util.intervalToStr(account['interval'])) +", monitorEnabled: {}\n".format(account['monitorEnable'])
+
            i+=1
 
-       context.bot.send_message(chat_id=chatId, text=message)
+       context.bot.send_message(chat_id=chatId, parse_mode=telegram.ParseMode.MARKDOWN, text=message)
    else:
        context.bot.send_message(chat_id=chatId, text="No accounts registered. Use /addAcct to register an account")
 
@@ -101,6 +115,31 @@ def deleteAcct(update, context):
        listAccts(update, context)
    else:
        context.bot.send_message(chat_id=chatId, text="No accounts registered. Use /addAcct to register an account")
+
+def updateAlias(update, context):
+   chatId = update.effective_chat.id
+   numAccounts = AlgoWatcherAcct.objects(chatId=chatId).count()
+   args =  util.parseArgs(context.args)
+
+   if numAccounts > 0:
+       accounts = AlgoWatcherAcct.objects(chatId=chatId)
+       if 1 == numAccounts:
+           acctIndex = 0
+       elif 'acctindex' in args and int(args['acctindex']) >= 0  and int(args['acctindex']) < numAccounts:
+           acctIndex = int(args['acctindex'])
+       else:
+           context.bot.send_message(chat_id=chatId, text="Invalid account index provided. Pick valid index from list below: ")
+           listAccts(update, context)
+           return
+
+       try:
+           accounts[acctIndex].update(alias=args['name'])
+           context.bot.send_message(chat_id=chatId, text="Set Alias for {} to {}".format(accounts[acctIndex]["address"], accounts[acctIndex]["alias"]))
+       except: 
+           context.bot.send_message(chat_id=chatId, text="Error setting Alias with input arguments. Usage /alias acctIndex=Number name=Name")
+   else:
+       context.bot.send_message(chat_id=chatId, text="No accounts registered. Use /addAcct to register an account")
+
 
 #Method to query amount of ASA Txns an account has had since
 #a given time interval
@@ -252,12 +291,13 @@ def startMonitor(update, context):
    accounts[acctIndex].update(monitorEnable=True)
    accounts[acctIndex].update(monitorTime=datetime.utcnow())
 
-   txStr = accounts[acctIndex]['address'] + " for " + str(accounts[acctIndex]['txnsPerInterval'])
+   #txStr = accounts[acctIndex]['address'] + " for " + str(accounts[acctIndex]['txnsPerInterval'])
+   txStr = getFormattedName(accounts[acctIndex]) + " for " + str(accounts[acctIndex]['txnsPerInterval'])
 
    txStr = txStr + " " +  ("transactions" if accounts[acctIndex]['txnsPerInterval'] != 1 else "transaction")
 
    message = "Monitor Enabled. Monitoring " + txStr + " every " + util.intervalToStr(accounts[acctIndex]['interval'])
-   context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+   context.bot.send_message(chat_id=update.effective_chat.id, parse_mode=telegram.ParseMode.MARKDOWN, text=message)
  
 #Disable Planet Monitoring for Telegram user
 def stopMonitor(update, context):
@@ -281,7 +321,7 @@ def stopMonitor(update, context):
    
    accounts[acctIndex].update(monitorEnable=False)
 
-   context.bot.send_message(chat_id=update.effective_chat.id, text="Monitor disabled for " + accounts[acctIndex]['address'])
+   context.bot.send_message(chat_id=update.effective_chat.id, parse_mode=telegram.ParseMode.MARKDOWN, text="Monitor disabled for " + getFormattedName(accounts[acctIndex]))#accounts[acctIndex]['address'])
 
 def getAveragePlanetPayoutCmd(update, context):
    chatId = update.effective_chat.id
@@ -400,16 +440,16 @@ def monitorAsset(dispatcher):
                    account.update(monitorTime=datetime.utcnow())
                    numTxns = len(getPlanetTxns(account['address'], account['monitorTime']))
                    if numTxns < account['txnsPerInterval']:
-                       message = "No New Planet Transactions Detected for " + account['address']
+                       message = "No New Planet Transactions Detected for " + getFormattedName(account)#account['address']
 
                        if account['txnsPerInterval'] > 1 :
                            message = message + ": Expected {} transactions | Got {} transaction{}".format(account['txnsPerInterval'], numTxns, "s" if numTxns != 1 else "")  
                       
                        message =  message + ". Please make sure your Sensor and App are still active." 
-                       dispatcher.bot.send_message(chat_id=account['chatId'], text=message)
+                       dispatcher.bot.send_message(chat_id=account['chatId'], parse_mode=telegram.ParseMode.MARKDOWN, text=message)
                except Exception as e:
                    try:
-                       dispatcher.bot.send_message(chat_id=account['chatId'], text="Unable to get transaction status for {}".format(account['address']))
+                       dispatcher.bot.send_message(chat_id=account['chatId'], parse_mode=telegram.ParseMode.MARKDOWN, text="Unable to get transaction status for {}".format(getFormattedName(account)))#account['address']))
                        print("Unable to get transaction status for User {} (id #{}) address #{}".format(dispatcher.bot.get_chat(account['chatId']).username, account['chatId'], account['address']))
                        print("Exception: {}".format(e))
                    except Exception as e:
@@ -428,8 +468,8 @@ def main():
    botToken = botProperties.get('botToken') #botToken = 'Telegram API Token'
    #botToken = botProperties.get('testBotToken') #botToken = 'Telegram API Token'
 
-   connect(db=botProperties['main_db'], host=botProperties['db_host'], port=botProperties['db_port'])
-   #connect(db=botProperties['test_db'], host=botProperties['db_host'], port=botProperties['db_port'])
+   #connect(db=botProperties['main_db'], host=botProperties['db_host'], port=botProperties['db_port'])
+   connect(db=botProperties['test_db'], host=botProperties['db_host'], port=botProperties['db_port'])
 
    algoClient = algod.AlgodClient(algoNodeToken, algoNodeAddress)
    updater = Updater(token=botToken, use_context=True)
@@ -449,6 +489,7 @@ def main():
    list_acct_handler = CommandHandler('listAccts', listAccts)
    stats_handler = CommandHandler('stats', getStats)
    delete_acct_handler = CommandHandler('deleteAcct', deleteAcct)
+   alias_handler= CommandHandler('alias', updateAlias)
    unknown_handler = MessageHandler(Filters.command, unknown)
 
 
@@ -463,6 +504,7 @@ def main():
    dispatcher.add_handler(average_planet_payout_handler)
    dispatcher.add_handler(list_acct_handler)
    dispatcher.add_handler(delete_acct_handler)
+   dispatcher.add_handler(alias_handler)
    dispatcher.add_handler(stats_handler)
    dispatcher.add_handler(unknown_handler)
 

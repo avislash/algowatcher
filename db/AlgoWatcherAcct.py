@@ -6,5 +6,5 @@ class AlgoWatcherAcct(Document):
     interval = LongField(required=True)
     txnsPerInterval = LongField(required=True)
     monitorTime = DateTimeField(required=True)
+    alias = StringField(required=True)
     meta = {"indexes": [('-monitorEnable', 'monitorTime')]}
-
